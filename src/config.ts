@@ -13,3 +13,6 @@ export const ORDERS = { start: 7, limit: 15_000, pairs: 3, rewardPerSpice: 20 };
 export const STARS = { optimalBuffer: 0.15, twoStarExtra: 0.35 };
 export const SHOP_NAME = { min: 2, max: 18, timing: 'first_launch' } as const;
 export const DAILY = { minSpices: 7, spiceRange: 3, hiddenFraction: 0.6 };
+export const PRECOMPUTE = {
+  levels: 1000, searchNodes: 4000, searchStates: 16000, searchTimeMs: 100,
+} as const;

@@ -1,8 +1,8 @@
 {
   "app.name": "Attar Sort",
-  "setup.status": "Phase one · Game foundations",
-  "setup.title": "Every shop starts somewhere",
-  "setup.body": "We are preparing the puzzle rules and levels for your spice shop. Browser gameplay arrives in phase three.",
-  "setup.note": "Project setup preview — gameplay is coming later.",
+  "setup.status": "Phase two · Puzzle preparation",
+  "setup.title": "1,000 puzzles ready for your shop",
+  "setup.body": "The levels are prepared and their solutions verified. Next come the jars, pouring, undo and hints.",
+  "setup.note": "This is a setup progress screen. Gameplay starts in phase three.",
   "setup.language": "العربية"
 }
