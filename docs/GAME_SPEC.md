@@ -182,7 +182,7 @@ Generating level L (seed = L for normal levels):
    - vessels = Deal(n, mulberry32(seed x 7919 + attempt x 104729 + 13))
    - reject if any vessel is already complete
    - count adjacent identical layers inside vessels; reject if the count > max(1, floor(n / 2))
-   - append 2 empty vessels; run solve(vessels, 15000); if solved, keep {vessels, path, score = nodes + 3 x path length}
+   - Deal already appended 2 empty vessels; do not append them again. Run solve(vessels, 15000); if solved, keep {vessels, path, score = nodes + 3 x path length}
 3. Fallback if no candidate: up to 20 deals with mulberry32(seed x 131 + attempt) and 3 empty vessels, solve limit 60,000.
 4. Sort candidates by score ascending. Pick: hard = hardest; normal = index floor((count - 1) x 0.7); tutorial and rest = easiest.
 5. Layer IDs: number layers sequentially across vessels in order, bottom to top. Keep a lookup layerId -> spice.
@@ -195,7 +195,7 @@ Beyond 1000, generate at runtime with the same algorithm. Print stats per level 
 
 ## 11. Level types and difficulty
 - Types: levels 1 and 2 are "tutorial". Every level divisible by 5 is "hard" (red badge "صعبة", double coins). The level right after a hard level (from level 6 on) is "rest" (green badge "راحة"). All others are "normal".
-- Spices: level 1 = 2, level 2 = 3, then min(10, 4 + floor((level - 3) / 3)). Hard: +1 (max 10). Rest: -1 (min 3). Always 2 empty vessels.
+- Spices: level 1 = 2, level 2 = 3, then min(10, 4 + floor((level - 3) / 3)). Hard: +1 (max 10). Rest: -1 (min 3). Normally 2 empty vessels; the generation fallback uses 3 (user-approved clarification, 2026-09-28).
 - Why: playtesting showed the early game felt too easy, so the ramp starts at 4 spices on level 3 and normal levels pick the 70th percentile of difficulty. Keep these numbers in config for tuning.
 
 ## 12. Hidden layers
