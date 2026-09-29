@@ -4,11 +4,11 @@ Android spice-sorting game, package ID `com.marcoehab.attarsort`.
 
 ## Current milestone
 
-Phase 3: playable browser game using Phaser, 1000 verified puzzles, shop naming,
-selection/pours, simple drop animation, undo, restart, background-worker hints,
-stars, unlocks, local progress and Arabic/English UI.
-Phaser and Capacitor are installed for later phases; there is no Android project
-or publishable AAB yet. No accounts, ads or purchases are connected.
+Phase 6: playable browser game with deterministic levels, animated spice pours,
+shop decorations and orders, seasonal themes, local save/resume, a daily reward
+calendar, daily challenge and streak. The debug music is generated in code and
+only included in development builds. The Android project and publishable AAB do
+not exist yet; real ads, purchases, cloud save and Play Games are not connected.
 
 ## Run on Windows
 
@@ -63,6 +63,10 @@ The game loads the checked-in data without rerunning this command at launch.
 - `src/ui/app.ts`: accessible jar hit targets and Arabic-friendly HTML overlays.
 - `src/meta/player.ts` and `src/services/`: minimal local progress, hint worker
   and development-console-only analytics mock.
+- `src/meta/daily.ts`, `src/services/daily.ts`, and `src/ui/dailyHub.ts`: daily
+  reward rules, worker-generated date-seeded challenge and localized daily hub.
+- `src/dev/music.ts`: development-only synthesized music placeholder; production
+  builds omit this module.
 - `tests/`: rule and generator validation.
 - `assets/`: supplied SVGs and locally licensed Cairo font.
 - `capacitor.config.ts`: Android app identity and future web build directory.
@@ -88,9 +92,9 @@ The game loads the checked-in data without rerunning this command at launch.
   at setup. Check package.json and package-lock.json for exact versions.
 - The development-only `?motionBench` screen is eliminated from production builds. Core generation is exercised
   by tests; levels beyond the precomputed 1000 are generated on demand.
-- Phase 5 shop decorations and order rewards are playable. Purchases with real
-  money, daily systems and ad-assisted help belong to later milestones.
-- Save schema v2 migrates v1 in the existing localStorage slot. It saves owned
+- Phase 5 shop decorations and order rewards are playable. Phase 6 adds daily
+  rewards and challenges. Real-money purchases and ad-assisted help remain later.
+- Save schema v3 migrates earlier saves in the existing localStorage slot. It saves owned
   decorations, settings, order-reward receipts and the in-progress board, hidden
   layers, undo history and helper counts. Invalid sessions safely restart.
   Native storage and cloud integration remain Phase 8.
@@ -104,10 +108,10 @@ The game loads the checked-in data without rerunning this command at launch.
   separate test browser origin/save; controls change that origin's save. They are
   removed from production. See `docs/PHASE_5_REPORT.md` for verification.
 - Native portrait mode, localized Android labels, signing, service credentials
-  and Play release validation are scheduled for later phases.
+  and Play release validation are scheduled for later phases. See
+  `docs/GOOGLE_PLAY_READINESS.md` for the remaining work and verification steps.
 
 ## Next phase
 
-Wait for the owner's OK, then Phase 6: reward calendar and tea tray, daily
-challenge and streak, daily hub, clock anti-cheat and debug placeholder music.
-Follow `docs/GAME_SPEC.md`.
+Wait for the owner's OK, then Phase 7: ad integration and policy-compliant
+reward flows. Follow `docs/GAME_SPEC.md` and the readiness checklist.

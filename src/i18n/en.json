@@ -225,7 +225,7 @@
   "spice.8": "Indigo",
   "spice.9": "Dried rose",
   "ui.purchasesLater": "Real-money purchases will be available in a later release.",
-  "ui.servicesLater": "Music and connected services arrive in later phases. Vibration depends on device support.",
+  "ui.servicesLater": "Connected services arrive in later phases. Vibration depends on device support.",
   "debug.title": "Development tools",
   "debug.coins": "Add 200 coins",
   "debug.jump": "Jump to level",
@@ -233,5 +233,18 @@
   "debug.level": "Test level number",
   "debug.events": "Last 20 events",
   "debug.day": "Advance preview date one day",
-  "debug.confirm": "Confirm reset test progress"
+  "debug.confirm": "Confirm reset test progress",
+  "daily.resume": "Resume challenge",
+  "daily.expired": "This challenge date has ended. Return to Daily to open the current challenge.",
+  "daily.received": "Received",
+  "daily.coins": "{n} coins",
+  "days.many": "{n} days",
+  "daily.retry": "Check time and claim reward",
+  "daily.hints": "{n} hints",
+  "settings.musicPreview": "Temporary music for the development build only.",
+  "days.few": "{n} days",
+  "days.one": "1 day",
+  "days.two": "2 days",
+  "daily.clockBlocked": "The device clock moved backwards. Rewards and streak progress resume when it catches up with the saved time.",
+  "settings.musicLater": "Final music will be available before release."
 }

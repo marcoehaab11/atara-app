@@ -20,6 +20,10 @@ import { settleOrder } from '../meta/orderReward';
 import { isComplete, isWon } from '../core/rules';
 import { art, spiceArt, garland } from './decorations';
 import { mulberry32 } from '../core/rng';
+import { dailySeed } from '../core/daily';
+import { claimDaily, completeDaily, dailyStatus, observeClock } from '../meta/daily';
+import { loadDaily } from '../services/daily';
+import { dayCount, fillDailyHub } from './dailyHub';
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text?: string): HTMLElementTagNameMap[K] => {
   const n = document.createElement(tag); n.className = cls;
@@ -57,6 +61,9 @@ export class App {
   }
   private won = false;
   private previewDate: Date | undefined;
+  private dailyDate: number | null = null;
+  private booting = true;
+  private now() { return this.previewDate ? new Date(this.previewDate) : new Date(); }
   private shownTheme = activeTheme(this.player.theme);
   private orderState: 'none' | 'waiting' | 'delivered' | 'missed' = 'none';
   private readonly counter = el('div', 'counter');
@@ -91,7 +98,7 @@ export class App {
     levelLine.append(this.levelLabel, this.badge); info.append(levelLine, this.movesLabel);
     const actions = el('div', 'hud-actions');
     this.shopButton.append(icon('shop')); this.dailyButton.append(icon('daily')); this.settingsButton.append(icon('settings'));
-    this.shopButton.onclick = () => void this.afterMotion(() => this.shop()); this.dailyButton.onclick = () => void this.afterMotion(() => this.comingSoon()); this.settingsButton.onclick = () => void this.afterMotion(() => this.settings());
+    this.shopButton.onclick = () => void this.afterMotion(() => this.shop()); this.dailyButton.onclick = () => void this.afterMotion(() => this.dailyHub()); this.settingsButton.onclick = () => void this.afterMotion(() => this.settings());
     actions.append(this.coinPill, this.dailyButton, this.shopButton, this.settingsButton); header.append(info, actions);
     const signRow = el('div', 'sign-row');
     this.sign.type = 'button'; this.sign.append(this.signName, this.signWorld); this.sign.onclick = () => void this.afterMotion(() => this.naming(false)); signRow.append(this.sign);
@@ -103,22 +110,26 @@ export class App {
     root.append(this.seasonal, header, signRow, mentor, this.orderCard, stage, this.counter, this.toastLine, this.toolbar, this.dialog);
     this.dialog.addEventListener('cancel', e => { e.preventDefault(); this.cancelModal(); });
     this.board = new Board(this.boardHost, (positions, height) => { stage.style.height = `${height}px`; this.drawJarControls(positions); });
-    this.board.configure(this.player.motion, this.player.sound);
+    this.board.configure(this.player.motion, this.player.sound, this.player.music);
     root.addEventListener('pointerdown', event => {
       this.board.unlockAudio();
       if (!(event.target as Element).closest('button') && this.board.animating) this.board.skip();
     });
     root.addEventListener('keydown', () => this.board.unlockAudio());
-    document.addEventListener('visibilitychange', () => { if (document.hidden) this.persist(); else this.update(false); });
+    document.addEventListener('visibilitychange', () => { this.persist(); if (!document.hidden) this.refreshDaily(); });
+    window.setInterval(() => { if (!document.hidden) { this.persist(); this.refreshDaily(); } }, 60_000);
     track('app_open', { level: this.player.level, returning: this.player.nameAnswered });
     this.startLevel();
+    this.booting = false;
     if (!this.player.nameAnswered && SHOP_NAME.timing === 'first_launch') { this.say('hassan.nameAsk'); this.naming(true); }
+    else if (this.player.daily.run?.date === dailySeed(this.now()) && !dailyStatus(this.player, this.now()).completed) void this.startDaily(this.player.daily.run.snapshot);
+    else { this.player.daily.run = null; this.maybeDaily(); }
     if (import.meta.env.DEV && new URLSearchParams(location.search).has('debug')) {
       void import('../dev/metaPanel').then(({ metaPanel }) => metaPanel(root, {
         coins: () => { this.player.coins += 200; this.persist(); this.update(false); },
-        jump: level => void this.afterMotion(() => { this.player.level = level; this.player.maxLevel = Math.max(level, this.player.maxLevel); this.player.session = null; this.startLevel(); }),
-        day: () => { this.previewDate ??= new Date(); this.previewDate.setDate(this.previewDate.getDate() + 1); this.update(false); },
-        reset: () => void this.afterMotion(() => { this.player = newPlayer(); this.board.configure(this.player.motion, this.player.sound); this.startLevel(); this.naming(true); }),
+        jump: level => void this.afterMotion(() => { this.dailyDate = null; this.player.daily.run = null; this.player.level = level; this.player.maxLevel = Math.max(level, this.player.maxLevel); this.player.session = null; this.startLevel(); }),
+        day: () => { this.previewDate ??= new Date(); this.previewDate.setDate(this.previewDate.getDate() + 1); this.persist(); this.refreshDaily(); this.maybeDaily(); },
+        reset: () => void this.afterMotion(() => { this.player = newPlayer(); this.board.configure(this.player.motion, this.player.sound, this.player.music); this.startLevel(); this.naming(true); }),
       }));
     }
   }
@@ -129,7 +140,10 @@ export class App {
     const b = el('button', secondary ? 'cta secondary' : 'cta', this.text(key)); b.type = 'button'; b.onclick = action; return b;
   }
   private persist() {
-    this.player.session = this.session && this.session.level.level === this.player.level ? this.session.snapshot() : null;
+    observeClock(this.player.daily, this.now());
+    if (this.dailyDate !== null) {
+      this.player.daily.run = this.player.daily.lastComplete === this.dailyDate ? null : { date: this.dailyDate, snapshot: this.session.snapshot() };
+    } else this.player.session = this.session && this.session.level.level === this.player.level ? this.session.snapshot() : null;
     if (!savePlayer(this.player)) this.toast('ui.saveUnavailable', 4500);
   }
   private vibrate(ms: number) { if (this.player.haptics) navigator.vibrate?.(ms); }
@@ -142,6 +156,7 @@ export class App {
     this.toastTimer = window.setTimeout(() => { this.toastLine.textContent = ''; }, duration);
   }
   private startLevel() {
+    this.dailyDate = null;
     clearTimeout(this.bubbleTimer); this.busy = false; this.won = false;
     try { this.session = new GameSession(loadLevel(this.player.level)); } catch { this.toast('ui.loadingError', 10000); return; }
     this.session.restore(this.player.session);
@@ -155,7 +170,7 @@ export class App {
     else if (level.order && this.orderState === 'waiting') this.say('hassan.order', { a: this.text(`spice.${level.order[0]}` as StringKey), b: this.text(`spice.${level.order[1]}` as StringKey) });
     else this.say(level.type === 'hard' ? 'hassan.hard' : level.type === 'rest' ? 'hassan.rest' : `hassan.normal.${1 + Math.floor(mulberry32(level.seed)() * 4)}` as StringKey);
     track('level_start', { level: level.level, type: level.type, order: this.orderState }); this.update(); this.persist();
-    if (isWon(this.session.state())) this.win();
+    if (isWon(this.session.state())) this.win(); else this.maybeDaily();
   }
   private update(renderBoard = true) {
     document.documentElement.lang = this.player.locale; document.documentElement.dir = this.player.locale === 'ar' ? 'rtl' : 'ltr';
@@ -165,6 +180,9 @@ export class App {
     this.movesLabel.textContent = this.text('ui.moves', { m: this.number(this.session.moves) }) + (level.level >= 2 ? ` · ${this.text('ui.target', { p: this.number(level.par) })}` : '');
     this.badge.hidden = level.type !== 'hard' && level.type !== 'rest'; this.badge.className = `level-badge ${level.type}`;
     this.badge.textContent = level.type === 'hard' ? this.text('ui.badge.hard') : level.type === 'rest' ? this.text('ui.badge.rest') : '';
+    const daily = dailyStatus(this.player, this.now());
+    this.dailyButton.classList.toggle('has-reward', daily.available && (!daily.claimed || !daily.completed));
+    if (this.dailyDate !== null) { this.levelLabel.textContent = this.text('ui.daily.title'); this.badge.hidden = false; this.badge.className = 'level-badge rest'; this.badge.textContent = this.text('ui.badge.streak', { n: this.number(daily.streak) }); }
     this.coinPill.replaceChildren(); const img = el('img'); img.src = coin; img.alt = ''; this.coinPill.append(img, this.number(this.player.coins));
     this.coinPill.hidden = !unlocked(this.player, 'coins'); this.coinPill.setAttribute('aria-label', this.text('ui.coins', { n: this.number(this.player.coins) }));
     this.shopButton.hidden = !unlocked(this.player, 'shop'); this.dailyButton.hidden = !unlocked(this.player, 'daily');
@@ -172,6 +190,7 @@ export class App {
     this.sign.disabled = this.blocked; this.signName.textContent = this.shopLabel(); this.sign.title = this.text('name.title.rename');
     this.signName.style.fontSize = `${this.shopLabel().length > 24 ? 13 : this.shopLabel().length > 19 ? 14 : 16}px`;
     this.signWorld.textContent = this.text('ui.world', { n: this.number(Math.floor((level.level - 1) / 20) + 1), name: this.text(`world.${level.world}` as StringKey) });
+    if (this.dailyDate !== null) this.signWorld.textContent = this.text('ui.daily.title');
     this.drawMeta();
     this.bubble.textContent = this.text(this.speech.key, { ...this.speech.params, ...('shop' in this.speech.params ? { shop: this.shopLabel() } : {}),
       ...(this.speech.key === 'hassan.order' && level.order ? { a: this.text(`spice.${level.order[0]}` as StringKey), b: this.text(`spice.${level.order[1]}` as StringKey) } : {}) });
@@ -250,6 +269,7 @@ export class App {
     finally { this.busy = false; this.update(); }
   }
   private win() {
+    if (this.dailyDate !== null) { this.dailyWin(); return; }
     this.won = true;
     this.board.play('win');
     this.vibrate(40);
@@ -271,12 +291,76 @@ export class App {
     const card = this.open('stuck.title'); card.append(el('p', '', this.text('stuck.body')), this.button('stuck.undo', () => { this.close(); this.undo(); }), this.button('stuck.extra', () => this.comingSoon(), true), this.button('stuck.restart', () => { this.close(); this.restart(); }, true), this.button('ui.close', () => this.close(), true));
   }
   private open(title: StringKey) {
+    this.dialog.dataset.kind = title;
     this.dialog.replaceChildren(); const card = el('div', 'modal-card'), h = el('h2', '', this.text(title));
     h.id = 'modal-title'; this.dialog.setAttribute('aria-labelledby', h.id); card.append(h); this.dialog.append(card);
     this.cancelModal = () => this.close(); if (!this.dialog.open) this.dialog.showModal(); return card;
   }
   private close() { this.dialog.close(); }
+  private refreshDaily() {
+    this.update(false);
+    if (this.dialog.open && this.dialog.dataset.kind === 'daily.title') this.dailyHub();
+  }
+  private maybeDaily() {
+    const status = dailyStatus(this.player, this.now());
+    if (this.booting || this.busy || this.won || this.dailyDate !== null || this.dialog.open || !this.player.nameAnswered || !status.available || status.claimed || this.player.daily.hubShown === status.today) return;
+    this.player.daily.hubShown = status.today; this.persist(); this.dailyHub();
+  }
+  private dailyHub() {
+    if (!unlocked(this.player, 'daily')) return;
+    this.persist();
+    const card = this.open('daily.title');
+    fillDailyHub(card, this.player, this.now(), {
+      claim: () => {
+        const reward = claimDaily(this.player, this.now());
+        if (reward) { this.persist(); this.board.play('coin'); this.say(reward.tray ? 'hassan.day7' : 'hassan.dailyReward', { shop: this.shopLabel() }); track('daily_reward_claim', { day: reward.day }); }
+        this.update(false); this.dailyHub();
+      },
+      play: () => { if (this.dailyDate === dailySeed(this.now()) && !this.won) this.close(); else void this.startDaily(); },
+      back: () => this.close(),
+      ...(this.dailyDate !== null ? { leave: () => this.leaveDaily() } : {}),
+    });
+  }
+  private async startDaily(snapshot?: unknown) {
+    if (this.busy) return;
+    const status = dailyStatus(this.player, this.now());
+    if (!status.available || status.completed) { this.dailyHub(); return; }
+    this.close(); this.busy = true; this.update(false); this.toast('ui.loading', 15000);
+    try {
+      const level = await loadDaily(status.today);
+      const current = dailyStatus(this.player, this.now());
+      if (current.today !== status.today || !current.available || current.completed) { this.busy = false; this.dailyHub(); return; }
+      this.dailyDate = status.today; this.player.session = null; this.won = false; this.orderState = 'none';
+      this.session = new GameSession(level); if (snapshot) this.session.restore(snapshot);
+      this.say('hassan.dailyStart'); this.persist(); this.busy = false; this.update();
+      track('daily_challenge_start', { date: status.today });
+      if (isWon(this.session.state())) this.dailyWin();
+    } catch { this.toast('ui.loadingError', 5000); }
+    finally { this.busy = false; if (this.toastLine.textContent === this.text('ui.loading')) { clearTimeout(this.toastTimer); this.toastLine.textContent = ''; } this.update(); }
+  }
+  private leaveDaily() {
+    this.close(); this.dailyDate = null; this.player.daily.run = null; this.player.session = null; this.startLevel();
+  }
+  private dailyWin() {
+    if (this.dailyDate === null) return;
+    const result = completeDaily(this.player, this.dailyDate, this.now());
+    this.won = true; this.persist(); this.update();
+    const card = this.open('dailyWin.title'), stars = starsForMoves(this.session.moves, this.session.level.par);
+    card.append(el('div', 'stars', '★'.repeat(stars) + '☆'.repeat(3 - stars)));
+    if (result) {
+      this.board.play('win'); this.vibrate(40);
+      this.say(result.streak === 1 ? 'hassan.streakFirst' : 'hassan.streakMore', { days: dayCount(this.player.locale, result.streak) });
+      card.append(el('p', '', this.text('dailyWin.body', { m: this.number(this.session.moves), days: dayCount(this.player.locale, result.streak), best: dayCount(this.player.locale, result.best) })), el('div', 'earn', this.text('win.coins', { c: this.number(result.reward) })));
+      track('daily_challenge_complete', { streak: result.streak, moves: this.session.moves, stars });
+    } else {
+      const status = dailyStatus(this.player, this.now());
+      card.append(el('p', '', this.text(!status.clockOK ? 'daily.clockBlocked' : status.completed ? 'daily.done' : 'daily.expired')));
+      if (!status.clockOK && status.today === this.dailyDate) card.append(this.button('daily.retry', () => this.dailyWin(), true));
+    }
+    card.append(this.button('dailyWin.back', () => this.leaveDaily())); this.cancelModal = () => this.leaveDaily();
+  }
   private checkOrder() {
+    if (this.dailyDate !== null) return false;
     const previous = this.orderState, result = settleOrder(this.player, this.session);
     this.orderState = result.status;
     if (result.reward) { this.board.play('coin'); this.say('hassan.orderDone', { coins: this.number(result.reward) }); track('order_complete', { level: this.session.level.level }); }
@@ -374,9 +458,13 @@ export class App {
     for (const key of ['sound', 'motion', 'haptics'] as const) {
       const toggle = el('button', 'cta secondary', `${this.text(`settings.${key}`)}: ${this.text(this.player[key] ? 'settings.on' : 'settings.off')}`);
       toggle.setAttribute('aria-pressed', String(this.player[key]));
-      toggle.onclick = () => { this.player[key] = !this.player[key]; this.board.configure(this.player.motion, this.player.sound); this.persist(); this.update(); this.settings(); };
+      toggle.onclick = () => { this.player[key] = !this.player[key]; this.board.configure(this.player.motion, this.player.sound, this.player.music); this.persist(); this.update(); this.settings(); };
       card.append(toggle);
     }
+    const music = el('button', 'cta secondary', `${this.text('settings.music')}: ${this.text(this.player.music ? 'settings.on' : 'settings.off')}`);
+    music.setAttribute('aria-pressed', String(this.player.music)); music.disabled = !import.meta.env.DEV;
+    music.onclick = () => { this.player.music = !this.player.music; this.board.configure(this.player.motion, this.player.sound, this.player.music); this.persist(); this.settings(); };
+    card.append(music, el('p', 'note', this.text(import.meta.env.DEV ? 'settings.musicPreview' : 'settings.musicLater')));
     card.append(el('h3', '', this.text('settings.theme')));
     const choices = el('div', 'language-options');
     for (const theme of themes) {
@@ -390,7 +478,7 @@ export class App {
       b.onclick = () => { this.player.locale = locale; this.persist(); this.update(); this.settings(); }; languages.append(b);
     }
     card.append(el('h3', '', this.text('ui.language')), languages, el('h3', '', this.text('ui.help')), el('p', '', this.text('ui.helpBody')));
-    for (const key of ['settings.music', 'settings.reminder', 'settings.privacy', 'settings.restore', 'settings.playGames'] as const) {
+    for (const key of ['settings.reminder', 'settings.privacy', 'settings.restore', 'settings.playGames'] as const) {
       const button = this.button(key, () => {}, true); button.disabled = true; card.append(button);
     }
     card.append(el('p', 'note', this.text('ui.servicesLater')), el('p', 'note', this.text('settings.version', { v: '0.1.0' })), this.button('ui.close', () => this.close()));

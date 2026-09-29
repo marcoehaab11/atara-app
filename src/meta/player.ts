@@ -5,26 +5,29 @@ import { decorations } from './shop';
 import type { Decoration } from './shop';
 import { themes } from './themes';
 import type { ThemeChoice } from './themes';
+import { freshDaily, readDaily } from './daily';
+import type { DailyProgress } from './daily';
 export interface Player {
-  version: 2; level: number; maxLevel: number; coins: number; hints: number;
+  version: 3; level: number; maxLevel: number; coins: number; hints: number;
   stars: Record<string, number>; name: string | null; nameAnswered: boolean;
   locale: Locale; announced: number[]; motion: boolean; sound: boolean;
   owned: Decoration[]; orderRewards: number[]; theme: ThemeChoice; haptics: boolean;
   session: unknown;
+  daily: DailyProgress; music: boolean;
 }
-export const newPlayer = (reducedMotion = false): Player => ({ version: 2, level: 1, maxLevel: 1, coins: 0, hints: 0, stars: {}, name: null, nameAnswered: false, locale: 'ar', announced: [], motion: !reducedMotion, sound: true, owned: [], orderRewards: [], theme: 'auto', haptics: true, session: null });
+export const newPlayer = (reducedMotion = false): Player => ({ version: 3, level: 1, maxLevel: 1, coins: 0, hints: 0, stars: {}, name: null, nameAnswered: false, locale: 'ar', announced: [], motion: !reducedMotion, sound: true, owned: [], orderRewards: [], theme: 'auto', haptics: true, session: null, daily: freshDaily(), music: true });
 const natural = (x: unknown): x is number => Number.isSafeInteger(x) && (x as number) >= 0;
 export function readPlayer(text: string | null, reducedMotion = false): Player {
   if (!text) return newPlayer(reducedMotion);
   try {
     const data = JSON.parse(text) as Omit<Partial<Player>, 'version'> & { version?: number };
-    if (![1, 2].includes(data.version ?? 0) || !natural(data.level) || data.level < 1 || !natural(data.maxLevel) || data.maxLevel < data.level ||
+    if (![1, 2, 3].includes(data.version ?? 0) || !natural(data.level) || data.level < 1 || !natural(data.maxLevel) || data.maxLevel < data.level ||
       !natural(data.coins) || !natural(data.hints) || !['ar', 'en'].includes(data.locale ?? '') ||
       typeof data.nameAnswered !== 'boolean' || (data.name !== null && (typeof data.name !== 'string' || validateShopName(data.name).error !== null)) ||
       !Array.isArray(data.announced) || !data.announced.every(x => natural(x) && x >= 2 && x <= 5) ||
       !data.stars || typeof data.stars !== 'object' || Array.isArray(data.stars) ||
       !Object.entries(data.stars).every(([k, v]) => /^[1-9]\d*$/.test(k) && natural(v) && v >= 1 && v <= 3)) return newPlayer(reducedMotion);
-    return { ...data, version: 2,
+    return { ...data, version: 3, daily: readDaily(data.daily), music: typeof data.music === 'boolean' ? data.music : true,
       motion: typeof data.motion === 'boolean' ? data.motion : !reducedMotion, sound: typeof data.sound === 'boolean' ? data.sound : true,
       owned: Array.isArray(data.owned) ? [...new Set(data.owned.filter(x => decorations.includes(x)))] : [],
       orderRewards: Array.isArray(data.orderRewards) ? [...new Set(data.orderRewards.filter(x => natural(x) && x >= 7 && x <= data.maxLevel!))] : [],

@@ -21,7 +21,7 @@ describe('shop and save migration', () => {
   });
   it('migrates a v1 save, preserves values and sanitizes optional metadata', () => {
     const old = { ...newPlayer(), version: 1, level: 21, maxLevel: 21, name: 'الخير', coins: 89, owned: undefined, session: undefined, orderRewards: undefined };
-    expect(readPlayer(JSON.stringify(old))).toMatchObject({ version: 2, level: 21, coins: 89, name: 'الخير', owned: [], session: null });
+    expect(readPlayer(JSON.stringify(old))).toMatchObject({ version: 3, level: 21, coins: 89, name: 'الخير', owned: [], session: null });
     const p = readPlayer(JSON.stringify({ ...old, owned: ['cat', 'cat', 'unknown'], theme: 'bad', orderRewards: [-1, 7, 7, 100] }));
     expect(p.owned).toEqual(['cat']); expect(p.theme).toBe('auto'); expect(p.orderRewards).toEqual([7]);
     expect(readPlayer(JSON.stringify(p))).toEqual(p);

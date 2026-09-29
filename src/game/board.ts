@@ -8,6 +8,7 @@ import type { FlightFrame } from '../core/flight';
 import { EFFECTS, wavUrl } from '../services/synth';
 import type { Effect } from '../services/synth';
 import type { GameSession } from '../core/session';
+import { placeholderOudUrl } from '../dev/music';
 
 const assets = import.meta.glob<string>('../../assets/svg/spice_*.svg', { eager: true, query: '?url&no-inline', import: 'default' });
 export interface JarPosition { x: number; y: number; width: number; height: number; complete: boolean }
@@ -31,6 +32,10 @@ class BoardScene extends Phaser.Scene {
   onMetrics: (metrics: MotionMetrics) => void = () => {};
   motionEnabled = true;
   soundEnabled = true;
+  private musicEnabled = true;
+  private musicTrack?: Phaser.Sound.BaseSound;
+  private audioUnlocked = false;
+  private audioPaused = false;
   private root?: Phaser.GameObjects.Container;
   private pieces = new Map<number, Piece[]>();
   private layers = new Map<number, { container: Phaser.GameObjects.Container; y: number }>();
@@ -44,12 +49,15 @@ class BoardScene extends Phaser.Scene {
     const textureSize = Math.ceil(40 * Math.max(1, Math.min(4, window.devicePixelRatio || 1)));
     for (const spice of SPICES) this.load.svg(`spice-${spice.id}`, assets[`../../assets/svg/${spice.asset}`], { width: textureSize, height: textureSize });
     for (const effect of EFFECTS) this.load.audio(effect, wavUrl(effect));
+    if (import.meta.env.DEV) this.load.audio('debug-oud', placeholderOudUrl());
   }
   create() {
     for (let i = 0; i < MOTION.poolSize; i++) this.pool.push(this.add.image(0, 0, 'spice-2').setDepth(100).setVisible(false).setActive(false));
     this.ready = true; this.onReady();
+    if (import.meta.env.DEV) { this.musicTrack = this.sound.add('debug-oud', { loop: true, volume: .12 }); this.syncMusic(); }
   }
   unlockAudio() {
+    this.audioUnlocked = true; this.syncMusic();
     if (this.sound instanceof Phaser.Sound.WebAudioSoundManager && this.sound.context.state === 'suspended') void this.sound.context.resume().catch(() => {});
   }
   play(effect: Effect) {
@@ -61,8 +69,21 @@ class BoardScene extends Phaser.Scene {
     const rate = landing ? .94 + ((this.soundCounter++ * 17) % 13) / 100 : 1;
     this.sound.play(effect, { volume: landing ? .24 : .3, rate });
   }
-  configure(motion: boolean, sound: boolean) { this.motionEnabled = motion; this.soundEnabled = sound; if (!sound && this.ready) this.sound.stopAll(); }
-  pauseAudio() { if (this.ready) this.sound.stopAll(); }
+  configure(motion: boolean, sound: boolean, music = true) {
+    this.motionEnabled = motion; this.soundEnabled = sound; this.musicEnabled = music;
+    if (!sound && this.ready) for (const key of EFFECTS) for (const effect of this.sound.getAll(key)) effect.stop();
+    this.syncMusic();
+  }
+  private syncMusic() {
+    const track = this.musicTrack; if (!track) return;
+    if (!this.musicEnabled || !this.audioUnlocked || this.audioPaused || document.hidden) { if (track.isPlaying) track.pause(); return; }
+    if (track.isPaused) track.resume(); else if (!track.isPlaying) track.play();
+  }
+  pauseAudio(paused: boolean) {
+    this.audioPaused = paused;
+    if (paused && this.ready) for (const key of EFFECTS) for (const effect of this.sound.getAll(key)) effect.stop();
+    this.syncMusic();
+  }
   render(view: BoardView): Promise<void> {
     if (!this.ready) { this.view = view; return Promise.resolve(); }
     this.finishMotion(true);
@@ -245,7 +266,7 @@ export class Board {
   private pending: BoardView | null = null;
   readonly ready: Promise<void>;
   onMetrics: (metrics: MotionMetrics) => void = () => {};
-  private readonly visibility = () => { if (document.hidden) { this.skip(); this.scene.pauseAudio(); } };
+  private readonly visibility = () => { if (document.hidden) this.skip(); this.scene.pauseAudio(document.hidden); };
   constructor(host: HTMLElement, onLayout: (positions: JarPosition[], height: number) => void) {
     this.scene.onLayout = onLayout; this.scene.onMetrics = metrics => this.onMetrics(metrics);
     this.ready = new Promise(resolve => { this.scene.onReady = () => { if (this.pending) void this.scene.render(this.pending); resolve(); }; });
@@ -258,7 +279,8 @@ export class Board {
     this.observer.observe(host); document.addEventListener('visibilitychange', this.visibility);
   }
   get animating() { return this.scene.animating; }
-  configure(motion: boolean, sound: boolean) { this.scene.configure(motion, sound); }
+  configure(motion: boolean, sound: boolean, music = true) { this.scene.configure(motion, sound, music); }
+  pauseAudio(paused: boolean) { this.scene.pauseAudio(paused); }
   render(view: BoardView): Promise<void> { this.pending = { session: view.session }; return this.scene.render(view); }
   skip() { this.scene.finishMotion(true); }
   unlockAudio() { this.scene.unlockAudio(); }
