@@ -11,5 +11,13 @@ coverage/
 google-services.json
 local.properties
 *.local.*
-android/
+android/.gradle/
+android/local.properties
+android/build/
+android/app/build/
+android/captures/
+android/.idea/
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
 ios/

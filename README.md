@@ -4,11 +4,12 @@ Android spice-sorting game, package ID `com.marcoehab.attarsort`.
 
 ## Current milestone
 
-Phase 7: the browser build includes clearly labeled demo ads and purchases;
+Phase 8: the Capacitor Android project is configured with test ads, native
+preferences, haptics, and optional daily reminders;
 rewarded flows, interstitial rules and the 48-hour starter offer are testable.
 The native AdMob/UMP bridge uses Google's test unit IDs. The Android project and
-publishable AAB do not exist yet; native ads need Android setup and an AdMob app
-ID. RevenueCat, cloud save and Play Games are not connected.
+signed AAB is not verified yet. Firebase Analytics, RevenueCat, cloud save and
+Play Games still need an approved implementation choice.
 
 ## Run on Windows
 
@@ -117,3 +118,8 @@ The game loads the checked-in data without rerunning this command at launch.
 
 Wait for the owner's OK, then Phase 8: Android project, platform setup, and
 native services. See `docs/PHASE_7_REPORT.md` and `docs/GOOGLE_PLAY_READINESS.md`.
+## Android (Phase 8)
+
+- Prepare and sync the native project: `npm run android:sync`
+- Open it in Android Studio: `npm run android:open`
+- Phase 8 status and remaining service choices: [docs/PHASE_8_REPORT.md](docs/PHASE_8_REPORT.md)
