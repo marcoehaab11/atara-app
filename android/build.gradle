@@ -17,6 +17,9 @@ buildscript {
 
 apply from: "variables.gradle"
 
+// Keep Capacitor's Android plugins on the same Kotlin toolchain as the native Play Games bridge.
+ext.kotlin_version = '2.3.21'
+
 allprojects {
     repositories {
         google()

@@ -22,14 +22,16 @@
 - `npm run build`: passed; Vite reports the existing >500 kB application chunk warning.
 - `npm run android:sync`: passed and found eight Capacitor plugins.
 - `npm audit --omit=dev`: zero production vulnerabilities.
-- `gradlew compileDebugKotlin --offline --no-daemon`: blocked before Kotlin compilation by Java `Unable to establish loopback connection`. The Android Studio JBR was found, but Java still could not establish Gradle's local connection. No APK was produced and no Android device was connected.
-- Retry the native build in Android Studio after Gradle sync, or from `android/` with `$env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'; .\gradlew.bat assembleDebug --no-daemon`.
+- `gradlew compileDebugKotlin --no-daemon '-Djava.io.tmpdir=C:\Temp'` with Android Studio JBR 21 and the installed Android SDK: Gradle configured the app and plugins, then stopped before Kotlin compilation because the local `build-tools;35.0.0` installation is incomplete (`source.properties` is missing). The SDK has API 36 and Build Tools 36.0.0, but Capacitor's Android library also requires the 35.0.0 package selected by AGP.
+- Downloaded the official Android command-line tools and verified SHA-256 `90ae805d20434428bffcb699c290860f19bb5f66a67e6b330067e3de801fb04a`; `sdkmanager` could not fetch Google's package manifest in this environment, so Build Tools could not be repaired here. No APK was produced and no Android device was connected.
+- Retry after repairing `Android SDK > SDK Tools > Android SDK Build-Tools 35.0.0` in Android Studio's SDK Manager, then from `android/` run `$env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'; $env:ANDROID_HOME = 'C:\Users\Marco Ehab\AppData\Local\Android\Sdk'; $env:TEMP = 'C:\Temp'; $env:TMP = 'C:\Temp'; .\gradlew.bat assembleDebug --no-daemon '-Djava.io.tmpdir=C:\Temp'`.
 - Firebase DebugView, Play Games behavior, notification delivery, keyboard behavior, and review UI need testing on a configured Android app/device. The production web bundle excludes the `metaPanel` and `motionBench` debug modules; Android release debug-tool exclusion still needs confirmation in a release build.
 
 ## Remaining Phase 8 decisions and setup
 
 - Play Games native code is in place, but Play Console IDs still need to be filled and the native build/device tests are not yet verified.
 - Firebase project setup: create/register Android package `com.marcoehab.attarsort`, enable Analytics and UMP Consent Mode in AdMob Privacy & Messaging, download `google-services.json`, and put it in `android/app/` locally. Then use Firebase DebugView while testing a debug build.
+- Repair the local Android SDK Build Tools 35.0.0 package before retrying Gradle; this is an SDK installation issue, not a project compilation diagnostic.
 - In Android Studio, open the project, wait for Gradle sync, and choose **Build > Build Bundle(s) / APK(s) > Build APK(s)** for a debug APK. For release, use **Build > Generate Signed Bundle / APK** and choose Android App Bundle. Create the upload key locally in that wizard, store its password outside the repository, and keep a second offline backup. Never commit the key or password.
 
 Phase 8 remains open until Play Games IDs are configured, the native build is verified, Firebase DebugView and device behavior are checked, and release debug-tool exclusion is confirmed. Phase 9 has not started.
