@@ -4,9 +4,9 @@ Android spice-sorting game, package ID `com.marcoehab.attarsort`.
 
 ## Current milestone
 
-Phase 2: 1000 precomputed, verified puzzles, bounded shortest-path search, a
-validated loader and generation statistics. The browser still shows a bilingual
-setup screen, not gameplay; the playable board is Phase 3.
+Phase 3: playable browser game using Phaser, 1000 verified puzzles, shop naming,
+selection/pours, simple drop animation, undo, restart, background-worker hints,
+stars, unlocks, local progress and Arabic/English UI.
 Phaser and Capacitor are installed for later phases; there is no Android project
 or publishable AAB yet. No accounts, ads or purchases are connected.
 
@@ -23,8 +23,11 @@ Installs the exact locked dependency versions (already installed in this checkou
 npm run dev -- --host
 ```
 Starts Vite. Open its printed Local URL, or the Network URL on a phone on the same
-Wi-Fi. The screen displays the Arabic project name, Uncle Hassan and setup status.
-The language button switches between Arabic RTL and English LTR. Stop with Ctrl+C.
+Wi-Fi. First launch opens the shop-naming dialog over level 1. Pick a suggestion
+and confirm, or skip. Tap the lifted jar, then the glowing empty jar. Complete
+every spice to win; Next advances to the following puzzle. Undo/restart unlock
+at level 2; hints and the coin counter unlock at level 3. Settings changes the
+language; tap the wooden sign or use Settings to rename. Stop with Ctrl+C.
 
 ```powershell
 npm test
@@ -55,6 +58,11 @@ The game loads the checked-in data without rerunning this command at launch.
 - `tools/`: precompute pipeline, solution replay and report generation.
 - `src/i18n/`: translated setup strings and translation helper.
 - `src/config.ts`: app identity and current core tuning values.
+- `src/game/board.ts`: Phaser SVG textures, jar visuals and simple drop tween.
+- `src/core/session.ts`: stable layer IDs, selection, history and helper usage.
+- `src/ui/app.ts`: accessible jar hit targets and Arabic-friendly HTML overlays.
+- `src/meta/player.ts` and `src/services/`: minimal local progress, hint worker
+  and development-console-only analytics mock.
 - `tests/`: rule and generator validation.
 - `assets/`: supplied SVGs and locally licensed Cairo font.
 - `capacitor.config.ts`: Android app identity and future web build directory.
@@ -79,12 +87,22 @@ The game loads the checked-in data without rerunning this command at launch.
   and installed Node 25.3.0. Phaser and Capacitor use the stable versions checked
   at setup. Check package.json and package-lock.json for exact versions.
 - No debug tools exist in the production entry point. Core generation is exercised
-  by tests, not triggered on opening the setup screen.
+  by tests; levels beyond the precomputed 1000 are generated on demand.
+- Shop, daily hub and ad-assisted help show a coming-soon message. There are no
+  fake purchases or rewards. These systems belong to later milestones. Orders
+  are precomputed but their playable card/rewards activate in Phase 5.
+- This milestone saves completed-level progress, coins, hints, name, stars,
+  language and announced unlocks. Reloading starts the unfinished level again;
+  session restoration, full save migrations and native storage are Phase 5/8.
+- Motion is a basic layer drop. Individual piece flights, sounds, motion settings,
+  rendering optimizations and performance measurements belong to Phase 4.
+- Existing jars use the glass style; sack/brass worlds and full decoration
+  rendering are Phase 5. The sign already reflects the world index.
 - Native portrait mode, localized Android labels, signing, service credentials
   and Play release validation are scheduled for later phases.
 
 ## Next phase
 
-Wait for the owner's OK, then Phase 3: the playable board, selection and pours,
-undo/restart/hint, naming, HUD, stars, unlocks and web analytics mocks.
+Wait for the owner's OK, then Phase 4: individual piece flights, tilt, landing
+sounds, skip-on-tap, reduced-motion setting and performance validation.
 Follow `docs/GAME_SPEC.md`.

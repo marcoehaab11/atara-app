@@ -11,8 +11,11 @@ export const GENERATION = {
 export const HIDDEN = { start: 12, base: 0.4, step: 0.03, max: 0.9 };
 export const ORDERS = { start: 7, limit: 15_000, pairs: 3, rewardPerSpice: 20 };
 export const STARS = { optimalBuffer: 0.15, twoStarExtra: 0.35 };
-export const SHOP_NAME = { min: 2, max: 18, timing: 'first_launch' } as const;
+export const SHOP_NAME = { min: 2, max: 18, timing: 'first_launch' as 'first_launch' | 'after_level_1' } as const;
 export const DAILY = { minSpices: 7, spiceRange: 3, hiddenFraction: 0.6 };
 export const PRECOMPUTE = {
   levels: 1000, searchNodes: 4000, searchStates: 16000, searchTimeMs: 100,
 } as const;
+export const HELPERS = { freeUndos: 5, freeHints: 1, hintLimit: 60_000 };
+export const UNLOCKS = { undo: 2, restart: 2, hint: 3, extra: 3, coins: 3, shop: 4, double: 4, daily: 5 } as const;
+export const ECONOMY = { winBase: 10, perStar: 5, hardMultiplier: 2 };
