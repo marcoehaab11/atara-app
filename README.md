@@ -5,11 +5,10 @@ Android spice-sorting game, package ID `com.marcoehab.attarsort`.
 ## Current milestone
 
 Phase 8: the Capacitor Android project is configured with test ads, native
-preferences, haptics, and optional daily reminders;
-rewarded flows, interstitial rules and the 48-hour starter offer are testable.
-The native AdMob/UMP bridge uses Google's test unit IDs. The Android project and
-signed AAB is not verified yet. Firebase Analytics, RevenueCat, cloud save and
-Play Games still need an approved implementation choice.
+preferences, haptics, local reminders, Firebase Analytics/UMP, Android back and
+keyboard handling, and Google Play In-App Review. The native Android build is
+not verified yet. Play Games integration still needs a plugin choice; RevenueCat
+is part of the next phase.
 
 ## Run on Windows
 

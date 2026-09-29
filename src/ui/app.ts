@@ -27,6 +27,7 @@ import { loadDaily } from '../services/daily';
 import { dayCount, fillDailyHub } from './dailyHub';
 import { isNativeAdsPlatform, showInterstitialAd, showRewardedAd, showPrivacyOptions } from '../services/ads';
 import { beginStarterOffer, markDoubleClaimed, markInterstitialShown, mockBuyStarterPack, shouldShowInterstitial, starterOfferAvailable } from '../meta/monetization';
+import { DEFAULT_REMINDER_HOUR, nextReminderTimes, REMINDER_NOTIFICATION_IDS } from '../meta/reminders';
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text?: string): HTMLElementTagNameMap[K] => {
   const n = document.createElement(tag); n.className = cls;
@@ -70,6 +71,8 @@ export class App {
   private shownTheme: ReturnType<typeof activeTheme> = 'normal';
   private orderState: 'none' | 'waiting' | 'delivered' | 'missed' = 'none';
   private rewardedThisWin = false;
+  private nativeBackListenerReady = false;
+  private reminderSyncedDay: number | null = null;
   private readonly counter = el('div', 'counter');
   private readonly orderCard = el('section', 'order-card');
   private readonly seasonal = el('div', 'garland');
@@ -118,6 +121,7 @@ export class App {
     this.board = new Board(this.boardHost, (positions, height) => { stage.style.height = `${height}px`; this.drawJarControls(positions); });
     this.board.configure(this.player.motion, this.player.sound, this.player.music);
     this.recordSessionStart();
+    if (isNativeAdsPlatform) void this.installPlatformListeners();
     root.addEventListener('pointerdown', event => {
       this.board.unlockAudio();
       if (!(event.target as Element).closest('button') && this.board.animating) this.board.skip();
@@ -142,6 +146,36 @@ export class App {
   }
   private text(key: StringKey, params: Record<string, string | number> = {}) { return t(this.player.locale, key, params); }
   private number(value: number) { return new Intl.NumberFormat(this.player.locale).format(value); }
+  private async installPlatformListeners() {
+    try {
+      const { App: NativeApp } = await import('@capacitor/app');
+      await NativeApp.addListener('backButton', () => this.handleBack());
+      this.nativeBackListenerReady = true;
+      const { Keyboard } = await import('@capacitor/keyboard');
+      await Keyboard.addListener('keyboardDidShow', () => {
+        const active = document.activeElement;
+        if (active instanceof HTMLElement && active.matches('input, textarea')) active.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      });
+      const { LocalNotifications } = await import('@capacitor/local-notifications');
+      await LocalNotifications.addListener('localNotificationActionPerformed', action => {
+        if (action.notification.extra?.reminder === true) {
+          track('reminder_opened'); this.reminderSyncedDay = null; void this.syncReminder();
+        }
+      });
+    } catch { /* Platform plugins are optional in browser builds. */ }
+  }
+  private handleBack() {
+    if (this.dialog.open) { this.cancelModal(); return; }
+    if (this.board.animating) { this.board.skip(); return; }
+    if (!this.nativeBackListenerReady) return;
+    const card = this.open('exit.title');
+    card.append(el('p', '', this.text('exit.body')));
+    card.append(this.button('exit.confirm', () => {
+      void import('@capacitor/app').then(({ App: NativeApp }) => NativeApp.exitApp()).catch(() => undefined);
+    }));
+    card.append(this.button('exit.cancel', () => this.close(), true));
+    this.cancelModal = () => this.close();
+  }
   private shopLabel(name = this.player.name) { return this.text('shop.label', { name: name ?? this.text('shop.defaultName') }); }
   private button(key: StringKey, action: () => void, secondary = false) {
     const b = el('button', secondary ? 'cta secondary' : 'cta', this.text(key)); b.type = 'button'; b.onclick = action; return b;
@@ -152,7 +186,6 @@ export class App {
       this.player.daily.run = this.player.daily.lastComplete === this.dailyDate ? null : { date: this.dailyDate, snapshot: this.session.snapshot() };
     } else this.player.session = this.session && this.session.level.level === this.player.level ? this.session.snapshot() : null;
     if (!savePlayer(this.player)) this.toast('ui.saveUnavailable', 4500);
-    if (this.player.reminderEnabled && this.player.daily.lastComplete === dailySeed(new Date())) this.player.reminderIgnored = 0;
     this.syncReminder();
   }
   private vibrate(ms: number) {
@@ -160,24 +193,20 @@ export class App {
     if (isNativeAdsPlatform) void import('@capacitor/haptics').then(({ Haptics }) => Haptics.vibrate({ duration: ms })).catch(() => undefined);
     else navigator.vibrate?.(ms);
   }
-  private syncReminder() {
-    if (!isNativeAdsPlatform || !this.player.reminderEnabled) return;
+  private async syncReminder() {
+    if (!isNativeAdsPlatform) return;
     const today = dailySeed(new Date());
-    if (this.player.daily.lastComplete === today) {
-      this.player.reminderIgnored = 0;
-      void import('@capacitor/local-notifications').then(({ LocalNotifications }) => LocalNotifications.cancel({ notifications: [{ id: 8101 }] })).catch(() => undefined);
-      return;
-    }
-    if (this.player.reminderIgnored >= 3) return;
-    const hour = this.player.reminderHour ?? 19;
-    const at = new Date(); at.setHours(hour, 0, 0, 0);
-    if (at <= new Date()) at.setDate(at.getDate() + 1);
+    if (this.reminderSyncedDay === today) return;
+    this.reminderSyncedDay = today;
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    await LocalNotifications.cancel({ notifications: REMINDER_NOTIFICATION_IDS.map(id => ({ id })) }).catch(() => undefined);
+    const delivered = await LocalNotifications.getDeliveredNotifications().catch(() => ({ notifications: [] }));
+    const deliveredIds = delivered.notifications.filter(item => REMINDER_NOTIFICATION_IDS.includes(item.id as typeof REMINDER_NOTIFICATION_IDS[number])).map(item => item.id);
+    if (deliveredIds.length) await LocalNotifications.removeDeliveredNotificationsById({ ids: deliveredIds }).catch(() => undefined);
+    if (!this.player.reminderEnabled || this.player.daily.lastComplete === today) return;
+    const times = nextReminderTimes(new Date(), this.player.reminderHour ?? DEFAULT_REMINDER_HOUR);
     const key = this.player.daily.streak > 0 ? 'reminder.streak' : this.player.name ? 'reminder.reward' : 'reminder.generic';
-    void import('@capacitor/local-notifications').then(async ({ LocalNotifications }) => {
-      const pending = await LocalNotifications.getPending();
-      if (pending.notifications.some(item => item.id === 8101)) { this.player.reminderIgnored = Math.min(3, this.player.reminderIgnored + 1); return; }
-      await LocalNotifications.schedule({ notifications: [{ id: 8101, title: this.text('app.name'), body: this.text(key, { days: this.player.daily.streak, shop: this.shopLabel() }), schedule: { at }, extra: { reminder: true } }] });
-    }).catch(() => undefined);
+    await LocalNotifications.schedule({ notifications: times.map((at, index) => ({ id: REMINDER_NOTIFICATION_IDS[index], title: this.text('app.name'), body: this.text(key, { days: this.player.daily.streak, shop: this.shopLabel() }), schedule: { at }, extra: { reminder: true } })) }).catch(() => undefined);
   }
   private async askReminder() {
     if (!isNativeAdsPlatform || this.player.reminderAsked || this.player.reminderDenied || this.player.daily.completions < 2) return;
@@ -190,6 +219,7 @@ export class App {
         const result = permission.display === 'granted' ? permission : await LocalNotifications.requestPermissions();
         const allowed = result.display === 'granted';
         this.player.reminderEnabled = allowed; this.player.reminderDenied = !allowed;
+        this.reminderSyncedDay = null;
         track('reminder_permission', { result: allowed ? 'granted' : 'denied' });
         this.persist(); this.settings();
       }).catch(() => { this.player.reminderEnabled = false; this.player.reminderDenied = true; this.persist(); });
@@ -208,7 +238,7 @@ export class App {
     if (this.player.reminderEnabled) {
       this.player.reminderEnabled = false;
       const { LocalNotifications } = await import('@capacitor/local-notifications');
-      await LocalNotifications.cancel({ notifications: [{ id: 8101 }] });
+      await LocalNotifications.cancel({ notifications: REMINDER_NOTIFICATION_IDS.map(id => ({ id })) });
     } else {
       const { LocalNotifications } = await import('@capacitor/local-notifications');
       const current = await LocalNotifications.checkPermissions();
@@ -216,6 +246,7 @@ export class App {
       if (permission.display !== 'granted') { this.player.reminderDenied = true; this.player.reminderEnabled = false; }
       else { this.player.reminderEnabled = true; this.player.reminderDenied = false; this.player.reminderAsked = true; }
     }
+    this.reminderSyncedDay = null;
     this.persist(); this.settings();
   }
   private say(key: StringKey, params: Record<string, string | number> = {}) {
@@ -346,7 +377,7 @@ export class App {
     this.vibrate(40);
     const level = this.session.level, stars = starsForMoves(this.session.moves, level.par);
     const reward = grantWin(this.player, level.level, stars, level.type === 'hard'); this.persist();
-    track('level_complete', { level: level.level, moves: this.session.moves, par: level.par, stars, hints: this.session.usedHints, undos: this.session.usedUndos, order: this.orderState === 'delivered' ? 'done' : this.orderState });
+    track('level_complete', { level: level.level, moves: this.session.moves, par: level.par, stars, hints: this.session.usedHints, undos: this.session.usedUndos, order: this.orderState === 'delivered' ? 'done' : this.orderState === 'missed' ? 'missed' : 'none' });
     this.say(stars === 3 ? 'hassan.win3stars' : `hassan.win.${1 + Math.floor(mulberry32(level.seed * 7)() * 3)}` as StringKey, { shop: this.shopLabel() }); this.update();
     const card = this.open('win.title');
     card.append(el('div', 'stars', '★'.repeat(stars) + '☆'.repeat(3 - stars)), el('p', '', this.text('win.body', { n: this.number(level.level), m: this.number(this.session.moves), p: this.number(level.par) })), el('div', 'earn', this.text('win.coins', { c: this.number(reward) })));
@@ -359,25 +390,37 @@ export class App {
         this.update(false); this.persist();
       }, { c: this.number(reward) }), true); card.append(double);
     }
-    const next = () => { void this.advanceAfterWin(level.level); };
+    const next = () => { void this.advanceAfterWin(level.level, stars, this.orderState === 'missed'); };
     card.append(this.button('win.next', next)); this.cancelModal = next;
   }
-  private async advanceAfterWin(completedLevel: number) {
+  private async advanceAfterWin(completedLevel: number, stars: number, missedOrder: boolean) {
     this.board.play('coin');
     const afterOffer = async () => {
       const eligible = shouldShowInterstitial(this.player, completedLevel, Date.now(), this.rewardedThisWin);
+      let interstitialShown = false;
       if (eligible) {
         if (isNativeAdsPlatform) {
-          if (await showInterstitialAd()) { markInterstitialShown(this.player, Date.now()); track('interstitial_shown', { level: completedLevel }); }
+          if (await showInterstitialAd()) { interstitialShown = true; markInterstitialShown(this.player, Date.now()); track('interstitial_shown', { level: completedLevel }); }
         } else await this.mockInterstitial();
       }
       this.close(); this.startLevel();
       if (completedLevel === 1 && !this.player.nameAnswered && SHOP_NAME.timing === 'after_level_1') this.naming(true);
+      if (isNativeAdsPlatform && stars === 3 && completedLevel >= 15 && !missedOrder && !this.rewardedThisWin && !interstitialShown) await this.requestInAppReview();
     };
     if (beginStarterOffer(this.player, completedLevel, Date.now())) {
-      this.persist(); this.starterPack(afterOffer); return;
+      this.persist(); track('starter_offer_shown'); this.starterPack(afterOffer); return;
     }
     await afterOffer();
+  }
+  private async requestInAppReview() {
+    const now = Date.now(), previous = this.player.reviewLastRequestedAt;
+    if (previous !== null && now - previous < 30 * 24 * 60 * 60 * 1000) return;
+    this.player.reviewLastRequestedAt = now; this.persist();
+    try {
+      const { InAppReview } = await import('@capacitor-community/in-app-review');
+      await InAppReview.requestReview();
+      track('review_requested');
+    } catch { /* Review API availability and display are controlled by Google Play. */ }
   }
   private async requestRewarded(placement: 'undo' | 'hint' | 'extra_jar' | 'double_coins', rewardKey: StringKey, grant: () => void, params: Record<string, string | number> = {}) {
     const modal = el('dialog', 'modal'), card = el('div', 'modal-card');
@@ -497,8 +540,8 @@ export class App {
     if (this.dailyDate !== null) return false;
     const previous = this.orderState, result = settleOrder(this.player, this.session);
     this.orderState = result.status;
-    if (result.reward) { this.board.play('coin'); this.say('hassan.orderDone', { coins: this.number(result.reward) }); track('order_complete', { level: this.session.level.level }); }
-    else if (result.status === 'missed' && previous !== 'missed') this.say('hassan.orderMissed');
+    if (result.reward) { this.board.play('coin'); this.say('hassan.orderDone', { coins: this.number(result.reward) }); track('order_complete', { level: this.session.level.level, reward: result.reward }); }
+    else if (result.status === 'missed' && previous !== 'missed') { this.say('hassan.orderMissed'); track('order_fail', { level: this.session.level.level }); }
     return previous !== result.status;
   }
   private drawMeta() {
@@ -549,7 +592,7 @@ export class App {
       info.append(el('strong', '', this.text(`item.${item}`)), el('small', '', owned ? this.text('shop.owned') : this.text('ui.coins', { n: this.number(price) })));
       const buy = this.button(owned ? 'shop.owned' : 'shop.buy', () => {
         if (!buyDecoration(this.player, item)) return;
-        this.persist(); this.board.play('coin'); this.say('hassan.purchase', { shop: this.shopLabel() }); this.update(false); this.shop(); track('decoration_bought', { item, coins: price });
+        this.persist(); this.board.play('coin'); this.say('hassan.purchase', { shop: this.shopLabel() }); this.update(false); this.shop(); track('shop_purchase', { item, price });
       });
       buy.disabled = owned || this.player.coins < price;
       if (!owned && this.player.coins < price) buy.textContent = this.text('shop.need', { c: this.number(price - this.player.coins) });
@@ -643,7 +686,7 @@ export class App {
     const choices = el('div', 'language-options');
     for (const theme of themes) {
       const b = el('button', `chip ${this.player.theme === theme ? 'active' : ''}`, this.text(`theme.${theme}`)); b.setAttribute('aria-pressed', String(this.player.theme === theme));
-      b.onclick = () => { this.player.theme = theme; this.persist(); this.say(`hassan.theme.${activeTheme(theme)}`); this.update(); this.settings(); }; choices.append(b);
+      b.onclick = () => { this.player.theme = theme; this.persist(); this.say(`hassan.theme.${activeTheme(theme)}`); track('theme_change', { theme }); this.update(); this.settings(); }; choices.append(b);
     }
     card.append(choices);
     const languages = el('div', 'language-options');

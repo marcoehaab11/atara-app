@@ -15,10 +15,11 @@ export interface Player {
   locale: Locale; announced: number[]; motion: boolean; sound: boolean;
   owned: Decoration[]; orderRewards: number[]; theme: ThemeChoice; haptics: boolean;
   session: unknown; reminderEnabled: boolean; reminderAsked: boolean; reminderDenied: boolean;
-  reminderHour: number | null; reminderIgnored: number; sessionStartHours: number[];
+  reminderHour: number | null; sessionStartHours: number[];
+  reviewLastRequestedAt: number | null;
   daily: DailyProgress; music: boolean; monetization: MonetizationProgress;
 }
-export const newPlayer = (reducedMotion = false): Player => ({ version: 4, level: 1, maxLevel: 1, coins: 0, hints: 0, stars: {}, name: null, nameAnswered: false, locale: 'ar', announced: [], motion: !reducedMotion, sound: true, owned: [], orderRewards: [], theme: 'auto', haptics: true, session: null, reminderEnabled: false, reminderAsked: false, reminderDenied: false, reminderHour: null, reminderIgnored: 0, sessionStartHours: [], daily: freshDaily(), music: true, monetization: freshMonetization() });
+export const newPlayer = (reducedMotion = false): Player => ({ version: 4, level: 1, maxLevel: 1, coins: 0, hints: 0, stars: {}, name: null, nameAnswered: false, locale: 'ar', announced: [], motion: !reducedMotion, sound: true, owned: [], orderRewards: [], theme: 'auto', haptics: true, session: null, reminderEnabled: false, reminderAsked: false, reminderDenied: false, reminderHour: null, sessionStartHours: [], reviewLastRequestedAt: null, daily: freshDaily(), music: true, monetization: freshMonetization() });
 const natural = (x: unknown): x is number => Number.isSafeInteger(x) && (x as number) >= 0;
 export function readPlayer(text: string | null, reducedMotion = false): Player {
   if (!text) return newPlayer(reducedMotion);
@@ -38,8 +39,8 @@ export function readPlayer(text: string | null, reducedMotion = false): Player {
       session: data.session ?? null,
       reminderEnabled: data.reminderEnabled === true, reminderAsked: data.reminderAsked === true, reminderDenied: data.reminderDenied === true,
       reminderHour: natural(data.reminderHour) && data.reminderHour < 24 ? data.reminderHour : null,
-      reminderIgnored: natural(data.reminderIgnored) ? Math.min(data.reminderIgnored, 3) : 0,
       sessionStartHours: Array.isArray(data.sessionStartHours) ? data.sessionStartHours.filter((x): x is number => natural(x) && x < 24).slice(-7) : [],
+      reviewLastRequestedAt: natural(data.reviewLastRequestedAt) ? data.reviewLastRequestedAt : null,
     } as Player;
   } catch { return newPlayer(reducedMotion); }
 }

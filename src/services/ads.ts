@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import { MONETIZATION } from '../config';
+import { initializeNativeAnalytics, setNativeAnalyticsConsentReady } from './analytics';
 
 const native = Capacitor.isNativePlatform();
 let consentReady: Promise<boolean> | null = null;
@@ -24,6 +25,14 @@ async function prepareNativeAds(): Promise<boolean> {
     return info.canRequestAds;
   })().catch(() => false);
   return consentReady;
+}
+
+/** Firebase must be initialized before UMP so its configured consent mode can update Analytics storage. */
+export async function initializeNativeServices(): Promise<void> {
+  if (!native) return;
+  await initializeNativeAnalytics();
+  const allowed = await prepareNativeAds();
+  setNativeAnalyticsConsentReady(allowed);
 }
 
 /** Returns true only after the native plugin confirms its earned-reward callback. */

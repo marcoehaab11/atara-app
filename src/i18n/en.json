@@ -262,5 +262,9 @@
   "days.one": "1 day",
   "days.two": "2 days",
   "daily.clockBlocked": "The device clock moved backwards. Rewards and streak progress resume when it catches up with the saved time.",
-  "settings.musicLater": "Final music will be available before release."
+  "settings.musicLater": "Final music will be available before release.",
+  "exit.title": "Leave the game?",
+  "exit.body": "Your progress is saved. Do you want to exit?",
+  "exit.confirm": "Exit game",
+  "exit.cancel": "Keep playing"
 }
