@@ -28,6 +28,8 @@ import { dayCount, fillDailyHub } from './dailyHub';
 import { isNativeAdsPlatform, showInterstitialAd, showRewardedAd, showPrivacyOptions } from '../services/ads';
 import { beginStarterOffer, markDoubleClaimed, markInterstitialShown, mockBuyStarterPack, shouldShowInterstitial, starterOfferAvailable } from '../meta/monetization';
 import { DEFAULT_REMINDER_HOUR, nextReminderTimes, REMINDER_NOTIFICATION_IDS } from '../meta/reminders';
+import { mergeCloudPlayers } from '../meta/cloudSave';
+import { queuePlayGamesSave, showPlayGamesAchievements, unlockPlayGamesAchievement } from '../services/playGames';
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text?: string): HTMLElementTagNameMap[K] => {
   const n = document.createElement(tag); n.className = cls;
@@ -186,7 +188,14 @@ export class App {
       this.player.daily.run = this.player.daily.lastComplete === this.dailyDate ? null : { date: this.dailyDate, snapshot: this.session.snapshot() };
     } else this.player.session = this.session && this.session.level.level === this.player.level ? this.session.snapshot() : null;
     if (!savePlayer(this.player)) this.toast('ui.saveUnavailable', 4500);
+    queuePlayGamesSave(JSON.stringify(this.player));
     this.syncReminder();
+  }
+  applyCloudPlayer(cloud: Player) {
+    this.player = mergeCloudPlayers(this.player, cloud);
+    savePlayer(this.player);
+    this.startLevel();
+    this.update();
   }
   private vibrate(ms: number) {
     if (!this.player.haptics) return;
@@ -376,7 +385,12 @@ export class App {
     this.board.play('win');
     this.vibrate(40);
     const level = this.session.level, stars = starsForMoves(this.session.moves, level.par);
-    const reward = grantWin(this.player, level.level, stars, level.type === 'hard'); this.persist();
+    const hadThreeStarWin = Object.values(this.player.stars).includes(3);
+    const reward = grantWin(this.player, level.level, stars, level.type === 'hard');
+    if (stars === 3 && !hadThreeStarWin) unlockPlayGamesAchievement('first_three_star');
+    if (level.level === 50) unlockPlayGamesAchievement('levels_50');
+    if (level.level === 100) unlockPlayGamesAchievement('levels_100');
+    this.persist();
     track('level_complete', { level: level.level, moves: this.session.moves, par: level.par, stars, hints: this.session.usedHints, undos: this.session.usedUndos, order: this.orderState === 'delivered' ? 'done' : this.orderState === 'missed' ? 'missed' : 'none' });
     this.say(stars === 3 ? 'hassan.win3stars' : `hassan.win.${1 + Math.floor(mulberry32(level.seed * 7)() * 3)}` as StringKey, { shop: this.shopLabel() }); this.update();
     const card = this.open('win.title');
@@ -490,7 +504,7 @@ export class App {
     fillDailyHub(card, this.player, this.now(), {
       claim: () => {
         const reward = claimDaily(this.player, this.now());
-        if (reward) { this.persist(); this.board.play('coin'); this.say(reward.tray ? 'hassan.day7' : 'hassan.dailyReward', { shop: this.shopLabel() }); track('daily_reward_claim', { day: reward.day }); }
+        if (reward) { this.persist(); this.board.play('coin'); this.say(reward.tray ? 'hassan.day7' : 'hassan.dailyReward', { shop: this.shopLabel() }); track('daily_reward_claim', { day: reward.day }); if (this.player.owned.length === 8) unlockPlayGamesAchievement('all_decorations'); }
         this.update(false); this.dailyHub();
       },
       play: () => { if (this.dailyDate === dailySeed(this.now()) && !this.won) this.close(); else void this.startDaily(); },
@@ -521,6 +535,7 @@ export class App {
   private dailyWin() {
     if (this.dailyDate === null) return;
     const result = completeDaily(this.player, this.dailyDate, this.now());
+    if (result && result.streak >= 7) unlockPlayGamesAchievement('streak_7');
     this.won = true; this.persist(); this.update();
     const card = this.open('dailyWin.title'), stars = starsForMoves(this.session.moves, this.session.level.par);
     card.append(el('div', 'stars', '★'.repeat(stars) + '☆'.repeat(3 - stars)));
@@ -540,7 +555,7 @@ export class App {
     if (this.dailyDate !== null) return false;
     const previous = this.orderState, result = settleOrder(this.player, this.session);
     this.orderState = result.status;
-    if (result.reward) { this.board.play('coin'); this.say('hassan.orderDone', { coins: this.number(result.reward) }); track('order_complete', { level: this.session.level.level, reward: result.reward }); }
+    if (result.reward) { this.board.play('coin'); this.say('hassan.orderDone', { coins: this.number(result.reward) }); track('order_complete', { level: this.session.level.level, reward: result.reward }); if (this.player.orderRewards.length === 20) unlockPlayGamesAchievement('orders_20'); }
     else if (result.status === 'missed' && previous !== 'missed') { this.say('hassan.orderMissed'); track('order_fail', { level: this.session.level.level }); }
     return previous !== result.status;
   }
@@ -593,6 +608,7 @@ export class App {
       const buy = this.button(owned ? 'shop.owned' : 'shop.buy', () => {
         if (!buyDecoration(this.player, item)) return;
         this.persist(); this.board.play('coin'); this.say('hassan.purchase', { shop: this.shopLabel() }); this.update(false); this.shop(); track('shop_purchase', { item, price });
+        if (this.player.owned.length === 8) unlockPlayGamesAchievement('all_decorations');
       });
       buy.disabled = owned || this.player.coins < price;
       if (!owned && this.player.coins < price) buy.textContent = this.text('shop.need', { c: this.number(price - this.player.coins) });
@@ -696,9 +712,9 @@ export class App {
     }
     card.append(el('h3', '', this.text('ui.language')), languages, el('h3', '', this.text('ui.help')), el('p', '', this.text('ui.helpBody')));
     for (const key of ['settings.reminder', 'settings.privacy', 'settings.restore', 'settings.playGames'] as const) {
-      const button = this.button(key, () => { if (key === 'settings.privacy') void this.privacyOptions(); else if (key === 'settings.reminder') void this.toggleReminder(); else this.infoModal(key, 'ui.servicesLater'); }, true);
+      const button = this.button(key, () => { if (key === 'settings.privacy') void this.privacyOptions(); else if (key === 'settings.reminder') void this.toggleReminder(); else if (key === 'settings.playGames') showPlayGamesAchievements(); else this.infoModal(key, 'ui.servicesLater'); }, true);
       if (key === 'settings.reminder') { button.setAttribute('aria-pressed', String(this.player.reminderEnabled)); button.textContent += `: ${this.text(this.player.reminderEnabled ? 'settings.on' : 'settings.off')}`; }
-      else if (key !== 'settings.privacy') button.disabled = true;
+      else if (key === 'settings.restore') button.disabled = true;
       card.append(button);
     }
     card.append(el('p', 'note', this.text('ui.servicesLater')), el('p', 'note', this.text('settings.version', { v: '0.1.0' })), this.button('ui.close', () => this.close()));

@@ -14,7 +14,7 @@
 
 ## Validation
 
-- `npm test`: passed, 11 files / 101 tests.
+- `npm test`: passed, 12 files / 103 tests, including cloud-save conflict selection.
 - `npm run typecheck`: passed.
 - `npm run lint`: passed after excluding generated Android web assets from ESLint.
 - `npm run build`: passed; Vite reports the existing >500 kB application chunk warning.
@@ -25,8 +25,8 @@
 
 ## Remaining Phase 8 decisions and setup
 
-- Google Play Games Services v2 sign-in, Saved Games, and achievements are not integrated. A new Capacitor 8 plugin candidate (`@idleflowgames/capacitor-play-games@0.3.0`) covers these APIs but needs extra device/Play Console validation. A custom thin Kotlin Capacitor bridge over Google's official SDK is a more controlled option with more code to maintain. Choose before adding either.
+- The implementation choice is now the custom Kotlin Capacitor bridge over Google's official Play Games Services v2 SDK. TypeScript cloud-save conflict selection and achievement triggers are in progress. Native implementation is waiting for approval to add the Kotlin Gradle Plugin required to compile the bridge; then Play Console game/achievement IDs and device validation will still be required.
 - Firebase project setup: create/register Android package `com.marcoehab.attarsort`, enable Analytics and UMP Consent Mode in AdMob Privacy & Messaging, download `google-services.json`, and put it in `android/app/` locally. Then use Firebase DebugView while testing a debug build.
 - In Android Studio, open the project, wait for Gradle sync, and choose **Build > Build Bundle(s) / APK(s) > Build APK(s)** for a debug APK. For release, use **Build > Generate Signed Bundle / APK** and choose Android App Bundle. Create the upload key locally in that wizard, store its password outside the repository, and keep a second offline backup. Never commit the key or password.
 
-Phase 8 remains open until Play Games is selected/integrated, the native build is verified, Firebase DebugView and device behavior are checked, and release debug-tool exclusion is confirmed. Phase 9 has not started.
+Phase 8 remains open until Play Games is integrated, the native build is verified, Firebase DebugView and device behavior are checked, and release debug-tool exclusion is confirmed. Phase 9 has not started.
