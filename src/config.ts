@@ -19,3 +19,9 @@ export const PRECOMPUTE = {
 export const HELPERS = { freeUndos: 5, freeHints: 1, hintLimit: 60_000 };
 export const UNLOCKS = { undo: 2, restart: 2, hint: 3, extra: 3, coins: 3, shop: 4, double: 4, daily: 5 } as const;
 export const ECONOMY = { winBase: 10, perStar: 5, hardMultiplier: 2 };
+export const MOTION = {
+  tiltDegrees: 24, leadMs: 200, flightMs: 520, staggerMaxMs: 40, staggerTotalMs: 420,
+  apexHeight: 40, jitter: 8, spinMin: 140, spinRange: 140,
+  bounceMs: 240, dropMs: 300, dropStaggerMs: 45, dropHeight: 70, poolSize: 32,
+  landingSoundGapMs: 22,
+} as const;

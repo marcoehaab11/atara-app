@@ -86,7 +86,7 @@ The game loads the checked-in data without rerunning this command at launch.
 - TypeScript 6.0 and Vitest 4.1 are pinned for compatibility with the lint tooling
   and installed Node 25.3.0. Phaser and Capacitor use the stable versions checked
   at setup. Check package.json and package-lock.json for exact versions.
-- No debug tools exist in the production entry point. Core generation is exercised
+- The development-only `?motionBench` screen is eliminated from production builds. Core generation is exercised
   by tests; levels beyond the precomputed 1000 are generated on demand.
 - Shop, daily hub and ad-assisted help show a coming-soon message. There are no
   fake purchases or rewards. These systems belong to later milestones. Orders
@@ -94,8 +94,9 @@ The game loads the checked-in data without rerunning this command at launch.
 - This milestone saves completed-level progress, coins, hints, name, stars,
   language and announced unlocks. Reloading starts the unfinished level again;
   session restoration, full save migrations and native storage are Phase 5/8.
-- Motion is a basic layer drop. Individual piece flights, sounds, motion settings,
-  rendering optimizations and performance measurements belong to Phase 4.
+- Phase 4 adds individual piece flights, tilt, landing bounce and material sounds,
+  tap-to-skip and persisted sound/motion settings. First-launch motion follows the
+  OS reduced-motion preference. See `docs/PHASE_4_REPORT.md` for measurements.
 - Existing jars use the glass style; sack/brass worlds and full decoration
   rendering are Phase 5. The sign already reflects the world index.
 - Native portrait mode, localized Android labels, signing, service credentials
@@ -103,6 +104,6 @@ The game loads the checked-in data without rerunning this command at launch.
 
 ## Next phase
 
-Wait for the owner's OK, then Phase 4: individual piece flights, tilt, landing
-sounds, skip-on-tap, reduced-motion setting and performance validation.
+Wait for the owner's OK, then Phase 5: world/vessel styles, decorations, shop,
+orders and rewards, seasonal themes, full settings and save migrations.
 Follow `docs/GAME_SPEC.md`.

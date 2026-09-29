@@ -8,7 +8,7 @@ import type { Move, State } from './types';
 import { CAP } from '../config';
 
 export type TapResult = { kind: 'select' | 'cancel' } | { kind: 'invalid'; reason: 'empty' | 'closed' | 'full' | 'mismatch' } |
-  { kind: 'pour'; moved: number[]; target: number; complete: boolean; won: boolean; stuck: boolean };
+  { kind: 'pour'; moved: number[]; source: number; target: number; complete: boolean; won: boolean; stuck: boolean };
 const copy = (s: State) => s.map(v => [...v]);
 
 /** Holds stable layer IDs. Spice-only states are derived for rule/solver calls. */
@@ -62,7 +62,7 @@ export class GameSession {
     this.guided = false;
     this.hintPair = null;
     const after = this.state(), won = isWon(after);
-    return { kind: 'pour', moved, target: index, complete: isComplete(after[index]), won, stuck: !won && !hasUsefulMove(after) };
+    return { kind: 'pour', moved, source, target: index, complete: isComplete(after[index]), won, stuck: !won && !hasUsefulMove(after) };
   }
   private invalid(reason: 'empty' | 'closed' | 'full' | 'mismatch'): TapResult {
     this.invalidTaps++;
