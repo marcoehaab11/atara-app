@@ -122,3 +122,4 @@ native services. See `docs/PHASE_7_REPORT.md` and `docs/GOOGLE_PLAY_READINESS.md
 - Prepare and sync the native project: `npm run android:sync`
 - Open it in Android Studio: `npm run android:open`
 - Phase 8 status and remaining Android setup: [docs/PHASE_8_REPORT.md](docs/PHASE_8_REPORT.md)
+- Configure Google Play Games Services IDs and tester accounts: [docs/PLAY_GAMES_SETUP.md](docs/PLAY_GAMES_SETUP.md)

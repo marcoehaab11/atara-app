@@ -194,8 +194,12 @@ export class App {
   applyCloudPlayer(cloud: Player) {
     this.player = mergeCloudPlayers(this.player, cloud);
     savePlayer(this.player);
+    queuePlayGamesSave(JSON.stringify(this.player));
     this.startLevel();
     this.update();
+    const dailyRun = this.player.daily.run;
+    if (dailyRun?.date === dailySeed(this.now()) && !dailyStatus(this.player, this.now()).completed) void this.startDaily(dailyRun.snapshot);
+    if (this.player.owned.length === 8) unlockPlayGamesAchievement('all_decorations');
   }
   private vibrate(ms: number) {
     if (!this.player.haptics) return;

@@ -5,4 +5,11 @@
     <string name="admob_app_id">ca-app-pub-3940256099942544~3347511713</string>
     <string name="package_name">com.marcoehab.attarsort</string>
     <string name="custom_url_scheme">com.marcoehab.attarsort</string>
+    <string name="play_games_app_id">0</string>
+    <string name="pgs_achievement_first_three_star">REPLACE_WITH_ACHIEVEMENT_ID</string>
+    <string name="pgs_achievement_levels_50">REPLACE_WITH_ACHIEVEMENT_ID</string>
+    <string name="pgs_achievement_levels_100">REPLACE_WITH_ACHIEVEMENT_ID</string>
+    <string name="pgs_achievement_streak_7">REPLACE_WITH_ACHIEVEMENT_ID</string>
+    <string name="pgs_achievement_orders_20">REPLACE_WITH_ACHIEVEMENT_ID</string>
+    <string name="pgs_achievement_all_decorations">REPLACE_WITH_ACHIEVEMENT_ID</string>
 </resources>

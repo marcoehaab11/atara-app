@@ -26,6 +26,7 @@ Attar Sort (Arabic: رتّب العطارة) is a hybrid-casual sort puzzle game
 - Android sync: `npx cap sync android` (after Android is added in Phase 8)
 - Android project sync and web build: `npm run android:sync`
 - Open Android Studio: `npm run android:open`
+- Compile the Android Kotlin bridge: `$env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'; .\gradlew.bat compileDebugKotlin --no-daemon` (run from `android/`)
 - Preview production build: `npm run preview`
 
 ## Every task is done only when
