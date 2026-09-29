@@ -4,7 +4,7 @@ import { GameSession } from '../core/session';
 import { loadLevel } from '../content/levelLoader';
 import { starsForMoves } from '../core/stars';
 import { cleanShopName, validateShopName } from '../core/shopName';
-import { grantWin, unlocked } from '../meta/player';
+import { grantWin, unlocked, newPlayer } from '../meta/player';
 import { loadPlayer, savePlayer } from '../services/storage';
 import { findHint } from '../services/hints';
 import { track } from '../services/analytics';
@@ -12,7 +12,14 @@ import { t } from '../i18n';
 import type { StringKey } from '../i18n';
 import hassan from '../../assets/svg/char_hassan.svg';
 import coin from '../../assets/svg/ui_coin.svg';
-import { SHOP_NAME } from '../config';
+import { SHOP_NAME, SHOP_PRICES, ORDERS } from '../config';
+import { buyDecoration } from '../meta/shop';
+import type { ShopItem } from '../meta/shop';
+import { activeTheme, themes } from '../meta/themes';
+import { settleOrder } from '../meta/orderReward';
+import { isComplete, isWon } from '../core/rules';
+import { art, spiceArt, garland } from './decorations';
+import { mulberry32 } from '../core/rng';
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text?: string): HTMLElementTagNameMap[K] => {
   const n = document.createElement(tag); n.className = cls;
@@ -49,6 +56,14 @@ export class App {
     action();
   }
   private won = false;
+  private previewDate: Date | undefined;
+  private shownTheme = activeTheme(this.player.theme);
+  private orderState: 'none' | 'waiting' | 'delivered' | 'missed' = 'none';
+  private readonly counter = el('div', 'counter');
+  private readonly orderCard = el('section', 'order-card');
+  private readonly seasonal = el('div', 'garland');
+  private readonly hangingA = el('span', 'hanging');
+  private readonly hangingB = el('span', 'hanging');
   private toastTimer = 0;
   private bubbleTimer = 0;
   private speech: { key: StringKey; params: Record<string, string | number> } = { key: 'hassan.tut1', params: {} };
@@ -76,15 +91,16 @@ export class App {
     levelLine.append(this.levelLabel, this.badge); info.append(levelLine, this.movesLabel);
     const actions = el('div', 'hud-actions');
     this.shopButton.append(icon('shop')); this.dailyButton.append(icon('daily')); this.settingsButton.append(icon('settings'));
-    this.shopButton.onclick = () => void this.afterMotion(() => this.comingSoon()); this.dailyButton.onclick = () => void this.afterMotion(() => this.comingSoon()); this.settingsButton.onclick = () => void this.afterMotion(() => this.settings());
+    this.shopButton.onclick = () => void this.afterMotion(() => this.shop()); this.dailyButton.onclick = () => void this.afterMotion(() => this.comingSoon()); this.settingsButton.onclick = () => void this.afterMotion(() => this.settings());
     actions.append(this.coinPill, this.dailyButton, this.shopButton, this.settingsButton); header.append(info, actions);
     const signRow = el('div', 'sign-row');
     this.sign.type = 'button'; this.sign.append(this.signName, this.signWorld); this.sign.onclick = () => void this.afterMotion(() => this.naming(false)); signRow.append(this.sign);
+    signRow.prepend(this.hangingA); signRow.append(this.hangingB);
     const mentor = el('div', 'mentor'), avatar = el('img', 'avatar'); avatar.src = hassan; avatar.alt = '';
     this.bubble.setAttribute('aria-live', 'polite'); mentor.append(avatar, this.bubble);
     const stage = el('section', 'stage'); stage.append(this.boardHost, this.hits);
     this.toastLine.setAttribute('role', 'status');
-    root.append(header, signRow, mentor, stage, this.toastLine, this.toolbar, this.dialog);
+    root.append(this.seasonal, header, signRow, mentor, this.orderCard, stage, this.counter, this.toastLine, this.toolbar, this.dialog);
     this.dialog.addEventListener('cancel', e => { e.preventDefault(); this.cancelModal(); });
     this.board = new Board(this.boardHost, (positions, height) => { stage.style.height = `${height}px`; this.drawJarControls(positions); });
     this.board.configure(this.player.motion, this.player.sound);
@@ -93,9 +109,18 @@ export class App {
       if (!(event.target as Element).closest('button') && this.board.animating) this.board.skip();
     });
     root.addEventListener('keydown', () => this.board.unlockAudio());
+    document.addEventListener('visibilitychange', () => { if (document.hidden) this.persist(); else this.update(false); });
     track('app_open', { level: this.player.level, returning: this.player.nameAnswered });
     this.startLevel();
     if (!this.player.nameAnswered && SHOP_NAME.timing === 'first_launch') { this.say('hassan.nameAsk'); this.naming(true); }
+    if (import.meta.env.DEV && new URLSearchParams(location.search).has('debug')) {
+      void import('../dev/metaPanel').then(({ metaPanel }) => metaPanel(root, {
+        coins: () => { this.player.coins += 200; this.persist(); this.update(false); },
+        jump: level => void this.afterMotion(() => { this.player.level = level; this.player.maxLevel = Math.max(level, this.player.maxLevel); this.player.session = null; this.startLevel(); }),
+        day: () => { this.previewDate ??= new Date(); this.previewDate.setDate(this.previewDate.getDate() + 1); this.update(false); },
+        reset: () => void this.afterMotion(() => { this.player = newPlayer(); this.board.configure(this.player.motion, this.player.sound); this.startLevel(); this.naming(true); }),
+      }));
+    }
   }
   private text(key: StringKey, params: Record<string, string | number> = {}) { return t(this.player.locale, key, params); }
   private number(value: number) { return new Intl.NumberFormat(this.player.locale).format(value); }
@@ -103,7 +128,11 @@ export class App {
   private button(key: StringKey, action: () => void, secondary = false) {
     const b = el('button', secondary ? 'cta secondary' : 'cta', this.text(key)); b.type = 'button'; b.onclick = action; return b;
   }
-  private persist() { if (!savePlayer(this.player)) this.toast('ui.saveUnavailable', 4500); }
+  private persist() {
+    this.player.session = this.session && this.session.level.level === this.player.level ? this.session.snapshot() : null;
+    if (!savePlayer(this.player)) this.toast('ui.saveUnavailable', 4500);
+  }
+  private vibrate(ms: number) { if (this.player.haptics) navigator.vibrate?.(ms); }
   private say(key: StringKey, params: Record<string, string | number> = {}) {
     this.speech = { key, params }; this.bubble.textContent = this.text(key, params);
     this.bubble.classList.remove('pop'); void this.bubble.offsetWidth; this.bubble.classList.add('pop');
@@ -115,13 +144,18 @@ export class App {
   private startLevel() {
     clearTimeout(this.bubbleTimer); this.busy = false; this.won = false;
     try { this.session = new GameSession(loadLevel(this.player.level)); } catch { this.toast('ui.loadingError', 10000); return; }
+    this.session.restore(this.player.session);
+    this.orderState = settleOrder(this.player, this.session).status;
     const level = this.session.level;
     if (level.level >= 2 && level.level <= 5 && !this.player.announced.includes(level.level)) {
       this.player.announced.push(level.level); this.persist(); this.say(`hassan.unlock${level.level}` as StringKey);
     } else if (level.level === 1) this.say('hassan.tut1');
     else if (level.level === 12) this.say('hassan.hidden12');
-    else this.say(level.type === 'hard' ? 'hassan.hard' : level.type === 'rest' ? 'hassan.rest' : 'hassan.normal.1');
-    track('level_start', { level: level.level, type: level.type, order: 'none' }); this.update();
+    else if (level.level > 1 && (level.level - 1) % 20 === 0) this.say(level.world === 0 ? 'hassan.world0again' : level.world === 1 ? 'hassan.world1' : 'hassan.world2');
+    else if (level.order && this.orderState === 'waiting') this.say('hassan.order', { a: this.text(`spice.${level.order[0]}` as StringKey), b: this.text(`spice.${level.order[1]}` as StringKey) });
+    else this.say(level.type === 'hard' ? 'hassan.hard' : level.type === 'rest' ? 'hassan.rest' : `hassan.normal.${1 + Math.floor(mulberry32(level.seed)() * 4)}` as StringKey);
+    track('level_start', { level: level.level, type: level.type, order: this.orderState }); this.update(); this.persist();
+    if (isWon(this.session.state())) this.win();
   }
   private update(renderBoard = true) {
     document.documentElement.lang = this.player.locale; document.documentElement.dir = this.player.locale === 'ar' ? 'rtl' : 'ltr';
@@ -138,8 +172,10 @@ export class App {
     this.sign.disabled = this.blocked; this.signName.textContent = this.shopLabel(); this.sign.title = this.text('name.title.rename');
     this.signName.style.fontSize = `${this.shopLabel().length > 24 ? 13 : this.shopLabel().length > 19 ? 14 : 16}px`;
     this.signWorld.textContent = this.text('ui.world', { n: this.number(Math.floor((level.level - 1) / 20) + 1), name: this.text(`world.${level.world}` as StringKey) });
-    this.bubble.textContent = this.text(this.speech.key, { ...this.speech.params, ...('shop' in this.speech.params ? { shop: this.shopLabel() } : {}) });
-    this.toolbar.replaceChildren(); this.toolbar.hidden = !unlocked(this.player, 'undo');
+    this.drawMeta();
+    this.bubble.textContent = this.text(this.speech.key, { ...this.speech.params, ...('shop' in this.speech.params ? { shop: this.shopLabel() } : {}),
+      ...(this.speech.key === 'hassan.order' && level.order ? { a: this.text(`spice.${level.order[0]}` as StringKey), b: this.text(`spice.${level.order[1]}` as StringKey) } : {}) });
+    this.toolbar.hidden = !unlocked(this.player, 'undo');
     const definitions = [
       { key: 'undo', title: 'ui.undo', badge: this.session.undoLeft > 0 ? this.number(this.session.undoLeft) : this.text('ui.ad'), run: () => this.undo() },
       { key: 'hint', title: 'ui.hint', badge: this.session.hintFree + this.player.hints > 0 ? this.number(this.session.hintFree + this.player.hints) : this.text('ui.ad'), run: () => void this.hint() },
@@ -147,27 +183,26 @@ export class App {
       { key: 'restart', title: 'ui.restart', badge: '', run: () => this.restart() },
     ] as const;
     for (const d of definitions) {
-      if (!unlocked(this.player, d.key)) continue;
-      const b = el('button', 'tool-button'); b.type = 'button'; b.disabled = this.blocked || this.won;
-      b.append(icon(d.key), el('span', '', this.text(d.title)));
+      const b = this.toolbar.querySelector<HTMLButtonElement>(`[data-tool="${d.key}"]`) ?? el('button', 'tool-button'); b.type = 'button'; b.dataset.tool = d.key;
+      b.hidden = !unlocked(this.player, d.key); b.disabled = this.blocked || this.won;
+      b.replaceChildren(icon(d.key), el('span', '', this.text(d.title)));
       if (d.badge) b.append(el('small', 'tool-badge', d.badge));
-      b.onclick = () => void this.afterMotion(d.run); this.toolbar.append(b);
+      b.onclick = () => void this.afterMotion(d.run); if (!b.parentElement) this.toolbar.append(b);
     }
     if (renderBoard) void this.board.render({ session: this.session });
   }
   private drawJarControls(positions: JarPosition[]) {
-    const focused = (document.activeElement as HTMLElement | null)?.dataset.jar; this.hits.replaceChildren();
+    if (this.hits.children.length !== positions.length) this.hits.replaceChildren();
     positions.forEach((p, i) => {
-      const b = el('button', 'jar-hit'); b.type = 'button'; b.dataset.jar = String(i);
+      const b = this.hits.children[i] as HTMLButtonElement | undefined ?? el('button', 'jar-hit'); b.type = 'button'; b.dataset.jar = String(i);
       b.style.cssText = `left:${p.x}px;top:${p.y - 5}px;width:${p.width}px;height:${p.height + 10}px`;
       const contents = this.session.vessels[i].map(id => this.session.hidden.has(id) ? this.text('jar.hidden') : this.text(`spice.${this.session.level.layerSpices[id]}` as StringKey)).join(this.player.locale === 'ar' ? '، ' : ', ') || this.text('jar.empty');
       b.setAttribute('aria-label', this.text('jar.label', { n: this.number(i + 1), contents }) + (p.complete ? ` · ${this.text('jar.complete')}` : ''));
       b.setAttribute('aria-pressed', String(this.session.selected === i)); b.disabled = this.blocked || this.won;
       b.onclick = () => void this.tap(i);
-      b.append(el('span', `jar-caption ${p.complete ? 'complete' : ''}`, p.complete ? this.text(`spice.${this.session.state()[i][0]}` as StringKey) : this.number(i + 1)));
-      this.hits.append(b);
+      b.replaceChildren(el('span', `jar-caption ${p.complete ? 'complete' : ''}`, p.complete ? this.text(`spice.${this.session.state()[i][0]}` as StringKey) : this.number(i + 1)));
+      if (!b.parentElement) this.hits.append(b);
     });
-    if (focused !== undefined) this.hits.querySelector<HTMLButtonElement>(`[data-jar="${focused}"]`)?.focus({ preventScroll: true });
   }
   private async tap(index: number) {
     if (this.board.animating) { this.board.skip(); await this.activePour; }
@@ -176,17 +211,20 @@ export class App {
     if (result.kind !== 'pour') {
       this.update();
       if (result.kind === 'select') this.board.play('select');
-      if (result.kind === 'invalid') { this.board.play('invalid'); this.board.shake(index); this.toast(`toast.${result.reason}` as StringKey); if (this.session.invalidTaps % 3 === 0) this.say('hassan.invalid'); }
+      if (result.kind === 'invalid') { this.vibrate(30); this.board.play('invalid'); this.board.shake(index); this.toast(`toast.${result.reason}` as StringKey); if (this.session.invalidTaps % 3 === 0) this.say('hassan.invalid'); }
+      this.persist();
       return;
     }
     this.busy = true;
+    this.vibrate(15);
+    const orderChanged = this.checkOrder(); this.persist();
     const animation = this.board.render({ session: this.session, motion: result });
     this.update(false);
     this.activePour = (async () => {
       await animation;
       this.busy = false; this.update();
       if (result.won) { this.win(); return; }
-      if (result.complete) { this.say('hassan.praise.1'); this.board.play('complete'); this.board.pulse(result.target); }
+      if (result.complete) { const r = mulberry32(this.session.level.seed * 101 + this.session.moves); if (!orderChanged && r() < .6) this.say(`hassan.praise.${1 + Math.floor(r() * 5)}` as StringKey); this.board.play('complete'); this.board.pulse(result.target); }
       if (result.stuck) { this.say('hassan.stuck'); this.stuck(); }
     })();
     await this.activePour;
@@ -194,11 +232,11 @@ export class App {
   private undo() {
     if (this.busy || this.won) return;
     const result = this.session.undo();
-    if (result === 'empty') this.toast('toast.noUndo'); else if (result === 'ad') this.comingSoon(); else this.update();
+    if (result === 'empty') this.toast('toast.noUndo'); else if (result === 'ad') this.comingSoon(); else { this.checkOrder(); this.update(); this.persist(); }
   }
   private restart() {
     if (this.busy || this.won) return;
-    this.session.restart(); this.update(); this.toast('toast.restarted'); track('level_restart', { level: this.session.level.level, mode: 'level' });
+    this.session.restart(); this.checkOrder(); this.update(); this.persist(); this.toast('toast.restarted'); track('level_restart', { level: this.session.level.level, mode: 'level' });
   }
   private async hint() {
     if (this.busy || this.won) return;
@@ -214,10 +252,11 @@ export class App {
   private win() {
     this.won = true;
     this.board.play('win');
+    this.vibrate(40);
     const level = this.session.level, stars = starsForMoves(this.session.moves, level.par);
     const reward = grantWin(this.player, level.level, stars, level.type === 'hard'); this.persist();
-    track('level_complete', { level: level.level, moves: this.session.moves, par: level.par, stars, hints: this.session.usedHints, undos: this.session.usedUndos, order: 'none' });
-    this.say(stars === 3 ? 'hassan.win3stars' : 'hassan.win.1', { shop: this.shopLabel() }); this.update();
+    track('level_complete', { level: level.level, moves: this.session.moves, par: level.par, stars, hints: this.session.usedHints, undos: this.session.usedUndos, order: this.orderState === 'delivered' ? 'done' : this.orderState });
+    this.say(stars === 3 ? 'hassan.win3stars' : `hassan.win.${1 + Math.floor(mulberry32(level.seed * 7)() * 3)}` as StringKey, { shop: this.shopLabel() }); this.update();
     const card = this.open('win.title');
     card.append(el('div', 'stars', '★'.repeat(stars) + '☆'.repeat(3 - stars)), el('p', '', this.text('win.body', { n: this.number(level.level), m: this.number(this.session.moves), p: this.number(level.par) })), el('div', 'earn', this.text('win.coins', { c: this.number(reward) })));
     if (level.type === 'hard') card.append(el('p', 'note', this.text('win.hardNote')));
@@ -237,6 +276,71 @@ export class App {
     this.cancelModal = () => this.close(); if (!this.dialog.open) this.dialog.showModal(); return card;
   }
   private close() { this.dialog.close(); }
+  private checkOrder() {
+    const previous = this.orderState, result = settleOrder(this.player, this.session);
+    this.orderState = result.status;
+    if (result.reward) { this.board.play('coin'); this.say('hassan.orderDone', { coins: this.number(result.reward) }); track('order_complete', { level: this.session.level.level }); }
+    else if (result.status === 'missed' && previous !== 'missed') this.say('hassan.orderMissed');
+    return previous !== result.status;
+  }
+  private drawMeta() {
+    const theme = activeTheme(this.player.theme, this.previewDate);
+    if (theme !== this.shownTheme) { this.shownTheme = theme; this.say(`hassan.theme.${theme}`); }
+    document.body.dataset.theme = theme;
+    this.seasonal.hidden = theme === 'normal'; this.seasonal.replaceChildren();
+    if (theme !== 'normal') {
+      this.seasonal.append(garland(theme));
+      this.signWorld.textContent = `${this.text(`greet.${theme}`)} · ${this.signWorld.textContent}`;
+    }
+    this.sign.classList.toggle('brass-sign', this.player.owned.includes('sign'));
+    this.hangingA.replaceChildren(); this.hangingB.replaceChildren();
+    if (this.player.owned.includes('lantern')) this.hangingA.append(art('lantern', this.text('item.lantern')));
+    if (this.player.owned.includes('chili')) this.hangingB.append(art('chili', this.text('item.chili')));
+    this.counter.hidden = !unlocked(this.player, 'shop'); this.counter.replaceChildren();
+    for (const item of ['plant', 'scale', 'tray', 'radio', 'cat'] as const) {
+      if (!this.player.owned.includes(item)) continue;
+      if (item === 'cat') {
+        const cat = el('button', 'cat'); cat.setAttribute('aria-label', this.text('item.cat')); cat.append(art('cat'));
+        cat.onclick = () => void this.afterMotion(() => { this.board.play('cat'); this.say('hassan.cat'); }); this.counter.append(cat);
+      } else this.counter.append(art(item, this.text(`item.${item}`)));
+    }
+    if (theme === 'spring') this.counter.append(art('eggs', this.text('theme.spring')));
+    if (!this.player.owned.length) this.counter.append(el('p', 'note', this.text('ui.counterEmpty')));
+    this.orderCard.replaceChildren(); const order = this.session.level.order;
+    this.orderCard.hidden = !order;
+    if (order) {
+      const info = el('div', 'order-info'), title = el('div', 'order-title');
+      const statusKey = this.orderState === 'delivered' ? 'done' : this.orderState === 'missed' ? 'missed' : 'waiting';
+      title.append(el('strong', '', this.text('order.title')), el('span', `order-status ${statusKey}`, this.text(`order.${statusKey}`)));
+      const items = el('div', 'order-items'), state = this.session.state();
+      for (const id of order) {
+        const item = el('span', 'order-item');
+        item.append(spiceArt(id), this.text(`spice.${id}` as StringKey));
+        if (state.some(v => isComplete(v) && v[0] === id)) item.append(el('span', 'order-check', '✓'));
+        items.append(item);
+      }
+      info.append(title, items, el('small', '', this.text('order.sub', { coins: this.number(order.length * ORDERS.rewardPerSpice * (this.session.level.type === 'hard' ? 2 : 1)) })));
+      this.orderCard.append(art('customer'), info);
+    }
+  }
+  private shop() {
+    const card = this.open('shop.title'); card.querySelector('h2')!.textContent = this.text('shop.title', { shop: this.shopLabel() });
+    card.append(el('p', 'shop-balance', this.text('shop.balance', { c: this.number(this.player.coins) })), el('p', 'note', this.text('shop.note')));
+    for (const item of Object.keys(SHOP_PRICES) as ShopItem[]) {
+      const owned = this.player.owned.includes(item), price = SHOP_PRICES[item], row = el('div', 'shop-item'), info = el('div');
+      info.append(el('strong', '', this.text(`item.${item}`)), el('small', '', owned ? this.text('shop.owned') : this.text('ui.coins', { n: this.number(price) })));
+      const buy = this.button(owned ? 'shop.owned' : 'shop.buy', () => {
+        if (!buyDecoration(this.player, item)) return;
+        this.persist(); this.board.play('coin'); this.say('hassan.purchase', { shop: this.shopLabel() }); this.update(false); this.shop(); track('decoration_bought', { item, coins: price });
+      });
+      buy.disabled = owned || this.player.coins < price;
+      if (!owned && this.player.coins < price) buy.textContent = this.text('shop.need', { c: this.number(price - this.player.coins) });
+      row.append(art(item), info, buy); card.append(row);
+    }
+    card.append(el('p', 'note', this.text('shop.hintsHave', { n: this.number(this.player.hints) })));
+    for (const key of ['shop.hints', 'shop.removeAds'] as const) { const button = this.button(key, () => {}, true); button.disabled = true; card.append(button); }
+    card.append(el('p', 'note', this.text('ui.purchasesLater')), this.button('shop.back', () => this.close()));
+  }
   private comingSoon() { const card = this.open('ui.nextFeature'); card.append(el('p', '', this.text('ui.featureBody')), this.button('ui.close', () => this.close())); }
   private naming(first: boolean) {
     const card = this.open(first ? 'name.title.first' : 'name.title.rename');
@@ -267,17 +371,28 @@ export class App {
   }
   private settings() {
     const card = this.open('settings.title'); card.append(this.button('settings.shopName', () => this.naming(false), true));
-    for (const key of ['sound', 'motion'] as const) {
+    for (const key of ['sound', 'motion', 'haptics'] as const) {
       const toggle = el('button', 'cta secondary', `${this.text(`settings.${key}`)}: ${this.text(this.player[key] ? 'settings.on' : 'settings.off')}`);
       toggle.setAttribute('aria-pressed', String(this.player[key]));
       toggle.onclick = () => { this.player[key] = !this.player[key]; this.board.configure(this.player.motion, this.player.sound); this.persist(); this.update(); this.settings(); };
       card.append(toggle);
     }
+    card.append(el('h3', '', this.text('settings.theme')));
+    const choices = el('div', 'language-options');
+    for (const theme of themes) {
+      const b = el('button', `chip ${this.player.theme === theme ? 'active' : ''}`, this.text(`theme.${theme}`)); b.setAttribute('aria-pressed', String(this.player.theme === theme));
+      b.onclick = () => { this.player.theme = theme; this.persist(); this.say(`hassan.theme.${activeTheme(theme)}`); this.update(); this.settings(); }; choices.append(b);
+    }
+    card.append(choices);
     const languages = el('div', 'language-options');
     for (const locale of ['ar', 'en'] as const) {
       const b = el('button', `chip ${this.player.locale === locale ? 'active' : ''}`, t(locale, 'ui.languageName')); b.setAttribute('aria-pressed', String(locale === this.player.locale));
       b.onclick = () => { this.player.locale = locale; this.persist(); this.update(); this.settings(); }; languages.append(b);
     }
-    card.append(el('h3', '', this.text('ui.language')), languages, el('h3', '', this.text('ui.help')), el('p', '', this.text('ui.helpBody')), this.button('ui.close', () => this.close()));
+    card.append(el('h3', '', this.text('ui.language')), languages, el('h3', '', this.text('ui.help')), el('p', '', this.text('ui.helpBody')));
+    for (const key of ['settings.music', 'settings.reminder', 'settings.privacy', 'settings.restore', 'settings.playGames'] as const) {
+      const button = this.button(key, () => {}, true); button.disabled = true; card.append(button);
+    }
+    card.append(el('p', 'note', this.text('ui.servicesLater')), el('p', 'note', this.text('settings.version', { v: '0.1.0' })), this.button('ui.close', () => this.close()));
   }
 }

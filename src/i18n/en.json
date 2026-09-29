@@ -223,5 +223,15 @@
   "spice.6": "Hibiscus",
   "spice.7": "Salt",
   "spice.8": "Indigo",
-  "spice.9": "Dried rose"
+  "spice.9": "Dried rose",
+  "ui.purchasesLater": "Real-money purchases will be available in a later release.",
+  "ui.servicesLater": "Music and connected services arrive in later phases. Vibration depends on device support.",
+  "debug.title": "Development tools",
+  "debug.coins": "Add 200 coins",
+  "debug.jump": "Jump to level",
+  "debug.reset": "Reset test progress",
+  "debug.level": "Test level number",
+  "debug.events": "Last 20 events",
+  "debug.day": "Advance preview date one day",
+  "debug.confirm": "Confirm reset test progress"
 }

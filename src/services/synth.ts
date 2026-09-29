@@ -1,6 +1,7 @@
 import { mulberry32 } from '../core/rng';
-export type Effect = 'select' | 'pour' | 'hard' | 'soft' | 'invalid' | 'complete' | 'win' | 'coin';
+export type Effect = 'select' | 'pour' | 'hard' | 'soft' | 'invalid' | 'complete' | 'win' | 'coin' | 'cat';
 const effects: Record<Effect, { notes: number[]; duration: number; noise: number }> = {
+  cat: { notes: [640, 820, 710, 480], duration: .48, noise: .03 },
   select: { notes: [520], duration: .07, noise: 0 }, pour: { notes: [170], duration: .18, noise: .7 },
   hard: { notes: [1500], duration: .035, noise: .3 }, soft: { notes: [320], duration: .05, noise: .5 },
   invalid: { notes: [95], duration: .15, noise: .15 }, complete: { notes: [523, 784], duration: .26, noise: 0 },

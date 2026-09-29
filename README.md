@@ -88,22 +88,26 @@ The game loads the checked-in data without rerunning this command at launch.
   at setup. Check package.json and package-lock.json for exact versions.
 - The development-only `?motionBench` screen is eliminated from production builds. Core generation is exercised
   by tests; levels beyond the precomputed 1000 are generated on demand.
-- Shop, daily hub and ad-assisted help show a coming-soon message. There are no
-  fake purchases or rewards. These systems belong to later milestones. Orders
-  are precomputed but their playable card/rewards activate in Phase 5.
-- This milestone saves completed-level progress, coins, hints, name, stars,
-  language and announced unlocks. Reloading starts the unfinished level again;
-  session restoration, full save migrations and native storage are Phase 5/8.
+- Phase 5 shop decorations and order rewards are playable. Purchases with real
+  money, daily systems and ad-assisted help belong to later milestones.
+- Save schema v2 migrates v1 in the existing localStorage slot. It saves owned
+  decorations, settings, order-reward receipts and the in-progress board, hidden
+  layers, undo history and helper counts. Invalid sessions safely restart.
+  Native storage and cloud integration remain Phase 8.
 - Phase 4 adds individual piece flights, tilt, landing bounce and material sounds,
   tap-to-skip and persisted sound/motion settings. First-launch motion follows the
   OS reduced-motion preference. See `docs/PHASE_4_REPORT.md` for measurements.
-- Existing jars use the glass style; sack/brass worlds and full decoration
-  rendering are Phase 5. The sign already reflects the world index.
+- Glass, woven sacks and brass worlds, counter decorations, interactive cat,
+  seasonal garlands and greetings are implemented. Calendar sources and tentative
+  2027 dates are documented in `docs/SEASON_DATES.md`.
+- `?debug` enables development-only coin/jump/date/reset/event controls. Use a
+  separate test browser origin/save; controls change that origin's save. They are
+  removed from production. See `docs/PHASE_5_REPORT.md` for verification.
 - Native portrait mode, localized Android labels, signing, service credentials
   and Play release validation are scheduled for later phases.
 
 ## Next phase
 
-Wait for the owner's OK, then Phase 5: world/vessel styles, decorations, shop,
-orders and rewards, seasonal themes, full settings and save migrations.
+Wait for the owner's OK, then Phase 6: reward calendar and tea tray, daily
+challenge and streak, daily hub, clock anti-cheat and debug placeholder music.
 Follow `docs/GAME_SPEC.md`.

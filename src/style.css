@@ -36,3 +36,25 @@ h2 { margin: 0 0 12px; font-size: 23px; color: #f0c674; text-align: center; } h3
 .stars { font-size: 45px; color: #f0c674; text-align: center; letter-spacing: 4px; }.earn { text-align: center; color: #f0c674; font-size: 21px; font-weight: 700; padding: 12px; background: #1b140d88; border-radius: 12px; }
 @media (max-width: 380px) { .game-shell { padding-inline: 10px; }.level-line strong { font-size: 15px; }.icon-button { width: 30px; }.hud-actions { gap: 3px; }.coin-pill { padding-inline: 4px; }.moves { font-size: 10px; }.modal-card { padding: 19px; } }
 @media (prefers-reduced-motion: reduce) { .pop { animation: none; } }
+body[data-theme=ramadan] { background: radial-gradient(ellipse at top, #3d2e66, #130f22 85%); }
+body[data-theme=eid] { background: radial-gradient(ellipse at top, #1f5550, #0f1a1b 85%); }
+body[data-theme=spring] { background: radial-gradient(ellipse at top, #3b5f2a, #111a10 85%); }
+.garland svg { width: 100%; height: 38px; display: block; }
+.sign-row { padding-inline: 0; align-items: center; gap: 7px; }.shop-sign { min-width: 0; flex: 1; }
+.hanging { width: 45px; flex-shrink: 0; align-self: flex-start; }.hanging img { width: 100%; height: 80px; object-fit: contain; }
+.brass-sign { background: linear-gradient(120deg, #b07728, #f0cb78 45%, #b88634); color: #30200d; border-color: #e8be68; }.brass-sign .sign-world { color: #503617; }
+.counter { display: flex; justify-content: center; align-items: end; gap: 9px; min-height: 65px; border-bottom: 12px solid #624024; box-shadow: 0 5px 0 #2d1d12; border-radius: 5px; padding: 2px 7px 0; }
+.counter > img, .cat { width: clamp(32px, 12vw, 62px); height: 57px; object-fit: contain; }.cat { border: 0; background: none; padding: 0; }.cat img { width: 100%; height: 100%; }.counter .note { margin: auto; font-size: 10px; }
+.order-card { display: flex; gap: 9px; align-items: center; background: #33251c; border: 1px solid #d4a24c66; border-radius: 14px; padding: 10px; margin-top: 14px; }
+.order-card > img { width: 44px; height: 44px; }.order-info { flex: 1; min-width: 0; }.order-title { display: flex; justify-content: space-between; gap: 5px; font-size: 12px; }.order-info small { color: #c9b79c; font-size: 10px; }
+.order-items { display: flex; flex-wrap: wrap; gap: 12px; margin: 5px 0; }.order-item { display: flex; align-items: center; gap: 5px; font-size: 12px; }.order-item img { width: 23px; height: 23px; }.order-check { color: #b6f0c2; }
+.order-status { padding: 1px 7px; border-radius: 7px; background: #614721; color: #f0c674; font-size: 10px; }.order-status.done { background: #1f4a2a; color: #b6f0c2; }.order-status.missed { background: #5a1f1a; color: #ffb4a8; }
+.shop-item { display: grid; grid-template-columns: 44px 1fr auto; gap: 9px; align-items: center; border-bottom: 1px solid #d4a24c33; padding: 12px 0; }.shop-item img { width: 40px; height: 50px; object-fit: contain; }.shop-item strong { font-size: 12px; }.shop-item small { display: block; color: #c9b79c; font-size: 10px; }.shop-item .cta { font-size: 11px; margin: 0; padding-inline: 9px; width: auto; max-width: 100px; }.shop-balance { text-align: center; color: #f0c674; }
+.debug-panel { margin-top: 25px; border: 1px dashed #d4a24c; padding: 12px; }.debug-panel input { width: 100%; font-size: 16px; }.debug-panel pre { direction: ltr; overflow: auto; font-size: 10px; }
+.order-card { line-height: 1.5; }.order-items { margin-block: 3px; }
+@media (max-width: 540px) {
+  .toolbar { position: sticky; bottom: 0; z-index: 5; background: #21170ff5; padding: 10px 0 max(10px, env(safe-area-inset-bottom)); }
+  .hanging { width: 34px; }.sign-row { padding-top: 25px; padding-bottom: 8px; }
+  .shop-sign { padding: 10px 8px; }.speech { font-size: 11px; padding: 8px 10px; }
+  .order-card { padding: 7px; margin-top: 9px; }.garland svg { height: 30px; }
+}

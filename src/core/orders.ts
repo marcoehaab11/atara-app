@@ -21,6 +21,7 @@ export function chooseOrder(state: State, seed: number): Order | null {
 export function orderStatus(state: State, order: Order, alreadyGranted: boolean): 'delivered' | 'missed' | 'waiting' {
   if (alreadyGranted) return 'delivered';
   const complete = state.filter(isComplete).map(v => v[0]);
+  if (complete.some(x => !order.includes(x))) return 'missed';
   if (order.every(x => complete.includes(x))) return 'delivered';
   return orderGuard(order)(state) ? 'waiting' : 'missed';
 }

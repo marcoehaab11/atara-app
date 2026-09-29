@@ -107,7 +107,13 @@ class BoardScene extends Phaser.Scene {
         back.lineStyle(2, 0xf0c674, .85).strokeRoundedRect(-3, -4, jarW + 6, jarH + 7, 13);
         if (this.motionEnabled) this.tweens.add({ targets: back, alpha: .5, duration: 650, yoyo: true, repeat: -1 });
       }
-      back.fillStyle(0xcbd5d4, .1).fillRoundedRect(0, 0, jarW, jarH, { tl: 5, tr: 5, bl: 13, br: 13 });
+      const world = session.level.world;
+      back.fillStyle(world === 1 ? 0x9e794b : world === 2 ? 0xa66d25 : 0xcbd5d4, world ? .65 : .1).fillRoundedRect(0, 0, jarW, jarH, { tl: 5, tr: 5, bl: 13, br: 13 });
+      if (world === 1) {
+        back.lineStyle(1, 0x302314, .35);
+        for (let x = 4; x < jarW; x += 6) back.lineBetween(x, 10, x, jarH - 8);
+        for (let y = 12; y < jarH - 8; y += 6) back.lineBetween(3, y, jarW - 3, y);
+      }
       ids.forEach((id, index) => {
         const spice = session.level.layerSpices[id], data = SPICES[spice], layerY = jarH - 8 - (index + 1) * layerH;
         const layer = this.add.container(3, layerY); container.add(layer); this.layers.set(id, { container: layer, y: layerY });
@@ -116,7 +122,7 @@ class BoardScene extends Phaser.Scene {
         if (session.hidden.has(id)) {
           band.lineStyle(1, 0x8c7350, .35);
           for (let sx = 0; sx < jarW - 6; sx += 7) band.lineBetween(sx, layerH, Math.min(jarW - 6, sx + 9), 0);
-          band.fillStyle(0xf0c674, .8).fillCircle((jarW - 6) / 2, layerH / 2, 2);
+          layer.add(this.add.text((jarW - 6) / 2, layerH / 2, '؟', { fontFamily: 'Cairo', fontSize: `${Math.floor(layerH * .65)}px`, color: '#f0c674' }).setOrigin(.5));
         }
         const records: Piece[] = [];
         for (const piece of pileLayout(id, session.level.seed, spice, layerH)) {
@@ -133,10 +139,18 @@ class BoardScene extends Phaser.Scene {
       });
       const front = this.add.graphics(); container.add(front);
       const sealed = complete && !ids.some(id => moving.has(id));
-      front.lineStyle(1.5, sealed ? 0xf0c674 : 0xbdcecd, sealed ? .9 : .45).strokeRoundedRect(0, 0, jarW, jarH, { tl: 5, tr: 5, bl: 13, br: 13 });
-      front.fillStyle(0xffffff, .1).fillRoundedRect(5, 13, 4, jarH - 30, 2);
-      front.fillStyle(sealed ? 0xd4a24c : 0x898d88).fillRoundedRect(-2, -4, jarW + 4, 10, 3);
-      front.lineStyle(1, sealed ? 0xffdfa0 : 0xc9ceca, .55).lineBetween(1, -2, jarW - 1, -2);
+      front.lineStyle(1.5, sealed ? 0xf0c674 : world ? 0xb99155 : 0xbdcecd, sealed ? .9 : .55).strokeRoundedRect(0, 0, jarW, jarH, { tl: 5, tr: 5, bl: 13, br: 13 });
+      if (world !== 1) front.fillStyle(0xffffff, world === 2 ? .2 : .1).fillRoundedRect(5, 13, 4, jarH - 30, 2);
+      if (world === 1) {
+        front.lineStyle(sealed ? 4 : 7, sealed ? 0xd4a24c : 0xc39a62).strokeRoundedRect(-1, -3, jarW + 2, 8, 4);
+        if (sealed) { front.lineBetween(jarW / 2 - 7, 0, jarW / 2 + 7, 7); front.lineBetween(jarW / 2 + 7, 0, jarW / 2 - 7, 7); }
+      } else if (world === 2) {
+        front.fillStyle(sealed ? 0xf0c674 : 0xbb8b3f).fillEllipse(jarW / 2, -2, jarW + 4, 18);
+        front.fillStyle(sealed ? 0xffdfa0 : 0xd4a24c).fillCircle(jarW / 2, -12, 4);
+      } else {
+        front.fillStyle(sealed ? 0xd4a24c : 0x898d88).fillRoundedRect(-2, -4, jarW + 4, 10, 3);
+        front.lineStyle(1, sealed ? 0xffdfa0 : 0xc9ceca, .55).lineBetween(1, -2, jarW - 1, -2);
+      }
     });
     this.onLayout(this.positions, height);
   }

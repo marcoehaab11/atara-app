@@ -286,6 +286,7 @@ Beyond 1000, generate at runtime with the same algorithm. Print stats per level 
 - Garland drawing: a rope made of 6 quadratic segments across the width (viewBox 360x30: each segment 60 wide, from y 3 through control y 15 back to y 3). Ramadan: one lantern hanging at the middle of each segment. Eid: flags at 20%, 50%, 80% of each segment. Sham El-Nessim: leaf, flower, leaf at 25%, 50%, 75%.
 - Theme selection: automatic from a date table in config.ts (Ramadan, Eid al-Fitr, Eid al-Adha, Sham El-Nessim change every year; ask me for the dates and leave clearly marked placeholders until then). Settings override: Automatic (default), Normal, Ramadan, Eid, Sham El-Nessim.
 - On theme change, عم حسن says the theme line.
+- Owner clarification (2026-09-29): use normal Egyptian calendar dates. The configured 2026/2027 table and sources are in `docs/SEASON_DATES.md`; future lunar dates are tentative and reviewed against official announcements. Theme windows: Ramadan through the day before Fitr, Fitr 3 days, Adha 4 days, Sham El-Nessim 1 day.
 
 ## 22. Popups and flows
 - Win (normal level), 550 ms after the last pour: win sound, spice pieces rain from the top (36 random pieces, 1.4 to 2.4 s falls), 40 ms vibration. Popup: title, stars (filled and empty), body text with moves and target, coins earned (with hard-level note), "double coins (ad)" from level 4, "next level".
