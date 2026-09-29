@@ -12,6 +12,7 @@ android {
         versionName "0.1.0"
         androidResources {
             generateLocaleConfig = true
+        localeFilters += ['en', 'ar']
         }
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

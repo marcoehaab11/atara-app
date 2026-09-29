@@ -29,9 +29,14 @@ class PlayGamesPlugin : Plugin() {
             val client = PlayGames.getSnapshotsClient(activity)
             client.open(SNAPSHOT_NAME, true, SnapshotsClient.RESOLUTION_POLICY_MANUAL)
                 .addOnSuccessListener { result ->
-                    if (result.isConflict) resolveConflict(client, result.conflict, call, null, 0)
+                    val conflict = result.conflict
+                    if (result.isConflict) {
+                        if (conflict == null) call.reject("Unable to read saved progress conflict")
+                        else resolveConflict(client, conflict, call, null, 0)
+                    }
                     else {
                         val snapshot = result.data
+                        if (snapshot == null) { call.reject("Saved progress is unavailable"); return@addOnSuccessListener }
                         val data = try { snapshot.snapshotContents.readFully().toString(Charsets.UTF_8).ifEmpty { null } }
                         catch (error: Exception) { client.discardAndClose(snapshot); call.reject("Unable to read saved progress", error); return@addOnSuccessListener }
                         client.discardAndClose(snapshot).addOnCompleteListener {
@@ -51,8 +56,15 @@ class PlayGamesPlugin : Plugin() {
             val client = PlayGames.getSnapshotsClient(activity)
             client.open(SNAPSHOT_NAME, true, SnapshotsClient.RESOLUTION_POLICY_MANUAL)
                 .addOnSuccessListener { result ->
-                    if (result.isConflict) resolveConflict(client, result.conflict, call, data, 0)
-                    else writeAndCommit(client, result.data, data, call)
+                    val conflict = result.conflict
+                    if (result.isConflict) {
+                        if (conflict == null) call.reject("Unable to read saved progress conflict")
+                        else resolveConflict(client, conflict, call, data, 0)
+                    } else {
+                        val snapshot = result.data
+                        if (snapshot == null) call.reject("Saved progress is unavailable")
+                        else writeAndCommit(client, snapshot, data, call)
+                    }
                 }
                 .addOnFailureListener { error -> call.reject("Unable to open saved progress", error) }
         }
@@ -66,7 +78,7 @@ class PlayGamesPlugin : Plugin() {
         val resourceId = context.resources.getIdentifier(resourceName, "string", context.packageName)
         val achievementId = if (resourceId == 0) "" else context.getString(resourceId)
         if (achievementId.isBlank() || achievementId.startsWith("REPLACE_")) { call.resolve(); return }
-        PlayGames.getAchievementsClient(activity).unlock(achievementId)
+        PlayGames.getAchievementsClient(activity).unlockImmediate(achievementId)
             .addOnSuccessListener { call.resolve() }
             .addOnFailureListener { error -> call.reject("Unable to unlock achievement", error) }
     }
@@ -136,9 +148,13 @@ class PlayGamesPlugin : Plugin() {
             val metadata = SnapshotMetadataChange.Builder().setDescription("Attar Sort progress").build()
             client.resolveConflict(conflict.conflictId, conflict.snapshot.metadata.snapshotId, metadata, resolution)
                 .addOnSuccessListener { result ->
-                    if (result.isConflict) resolveConflict(client, result.conflict, call, localData, attempt + 1)
-                    else {
+                    val nextConflict = result.conflict
+                    if (result.isConflict) {
+                        if (nextConflict == null) { call.reject("Unable to read saved progress conflict"); return@addOnSuccessListener }
+                        resolveConflict(client, nextConflict, call, localData, attempt + 1)
+                    } else {
                         val opened = result.data
+                        if (opened == null) { call.reject("Saved progress is unavailable"); return@addOnSuccessListener }
                         val resolvedData = try { opened.snapshotContents.readFully().toString(Charsets.UTF_8) }
                         catch (_: Exception) { merged }
                         client.discardAndClose(opened).addOnCompleteListener {
