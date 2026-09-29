@@ -27,6 +27,7 @@ export class GameSession {
   usedUndos = 0;
   usedHints = 0;
   invalidTaps = 0;
+  extraJarUsed = false;
 
   constructor(level: PlayableLevel) {
     this.level = level;
@@ -41,21 +42,26 @@ export class GameSession {
   state(): number[][] { return this.vessels.map(v => v.map(id => this.level.layerSpices[id])); }
   snapshot() {
     return { level: this.level.level, vessels: copy(this.vessels), hidden: [...this.hidden], history: this.history.map(copy),
-      moves: this.moves, undoLeft: this.undoLeft, hintFree: this.hintFree, usedUndos: this.usedUndos, usedHints: this.usedHints, invalidTaps: this.invalidTaps };
+      moves: this.moves, undoLeft: this.undoLeft, hintFree: this.hintFree, usedUndos: this.usedUndos, usedHints: this.usedHints, invalidTaps: this.invalidTaps, extraJarUsed: this.extraJarUsed };
   }
   restore(input: unknown): boolean {
     if (!input || typeof input !== 'object') return false;
     const data = input as ReturnType<GameSession['snapshot']>;
-    const validBoard = (value: unknown): value is number[][] => {
-      if (!Array.isArray(value) || value.length !== this.initial.length || !value.every(v => Array.isArray(v) && v.length <= CAP)) return false;
+    const extraJarUsed = (data as { extraJarUsed?: unknown }).extraJarUsed === true;
+    const vesselCount = this.initial.length + (extraJarUsed ? 1 : 0);
+    const validBoard = (value: unknown, count = vesselCount): value is number[][] => {
+      if (!Array.isArray(value) || value.length !== count || !value.every(v => Array.isArray(v) && v.length <= CAP)) return false;
       const ids = value.flat().sort((a, b) => a - b);
       return ids.length === this.level.layerSpices.length && ids.every((id, i) => id === i);
     };
-    if (data.level !== this.level.level || !validBoard(data.vessels) || !Array.isArray(data.history) || data.history.length > 10000 || !data.history.every(validBoard) ||
+    if (data.level !== this.level.level || !validBoard(data.vessels) || !Array.isArray(data.history) || data.history.length > 10000 || !data.history.every(v => validBoard(v) || (extraJarUsed && validBoard(v, vesselCount - 1))) ||
       !Array.isArray(data.hidden) || !data.hidden.every(id => this.level.hidden.includes(id)) ||
       !['moves', 'undoLeft', 'hintFree', 'usedUndos', 'usedHints', 'invalidTaps'].every(key => { const n = data[key as keyof typeof data]; return typeof n === 'number' && Number.isSafeInteger(n) && n >= 0; }) ||
-      data.undoLeft > HELPERS.freeUndos || data.hintFree > HELPERS.freeHints) return false;
-    this.vessels = copy(data.vessels); this.hidden = revealLayers(new Set(data.hidden), this.vessels); this.history = data.history.map(copy);
+      data.undoLeft > 1000 || data.hintFree > HELPERS.freeHints) return false;
+    this.initial = copy(this.level.layerVessels);
+    if (extraJarUsed) this.initial.push([]);
+    this.vessels = copy(data.vessels); this.hidden = revealLayers(new Set(data.hidden), this.vessels);
+    this.history = data.history.map(v => v.length === vesselCount ? copy(v) : [...copy(v), []]); this.extraJarUsed = extraJarUsed;
     this.moves = data.moves; this.undoLeft = data.undoLeft; this.hintFree = data.hintFree;
     this.usedUndos = data.usedUndos; this.usedHints = data.usedHints; this.invalidTaps = data.invalidTaps;
     this.guided = this.level.level === 1 && this.moves === 0;
@@ -100,6 +106,13 @@ export class GameSession {
     this.selected = null; this.hintPair = null;
     // Undo never refunds moves or helper allowances.
     return 'ok';
+  }
+  grantUndos(count = 5): void { this.undoLeft = Math.min(1000, this.undoLeft + count); }
+  addExtraJar(): boolean {
+    if (this.extraJarUsed) return false;
+    this.extraJarUsed = true; this.initial.push([]); this.vessels.push([]);
+    this.history = this.history.map(snapshot => [...snapshot, []]);
+    return true;
   }
   restart(): void {
     this.vessels = copy(this.initial);

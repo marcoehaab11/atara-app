@@ -52,7 +52,7 @@ describe('challenge streak and clock', () => {
   it('migrates previous saves without inventing daily claims', () => {
     const old = { ...player(), version: 2, daily: undefined, music: undefined, coins: 77 };
     const migrated = readPlayer(JSON.stringify(old));
-    expect(migrated.version).toBe(3); expect(migrated.coins).toBe(77); expect(migrated.daily.lastClaim).toBeNull();
+    expect(migrated.version).toBe(4); expect(migrated.coins).toBe(77); expect(migrated.daily.lastClaim).toBeNull();
     claimDaily(migrated, date(1)); expect(readPlayer(JSON.stringify(migrated))).toEqual(migrated);
   });
   it('formats Arabic day counts and English plurals', () => {

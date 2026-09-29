@@ -4,11 +4,11 @@ Android spice-sorting game, package ID `com.marcoehab.attarsort`.
 
 ## Current milestone
 
-Phase 6: playable browser game with deterministic levels, animated spice pours,
-shop decorations and orders, seasonal themes, local save/resume, a daily reward
-calendar, daily challenge and streak. The debug music is generated in code and
-only included in development builds. The Android project and publishable AAB do
-not exist yet; real ads, purchases, cloud save and Play Games are not connected.
+Phase 7: the browser build includes clearly labeled demo ads and purchases;
+rewarded flows, interstitial rules and the 48-hour starter offer are testable.
+The native AdMob/UMP bridge uses Google's test unit IDs. The Android project and
+publishable AAB do not exist yet; native ads need Android setup and an AdMob app
+ID. RevenueCat, cloud save and Play Games are not connected.
 
 ## Run on Windows
 
@@ -67,6 +67,8 @@ The game loads the checked-in data without rerunning this command at launch.
   reward rules, worker-generated date-seeded challenge and localized daily hub.
 - `src/dev/music.ts`: development-only synthesized music placeholder; production
   builds omit this module.
+- `src/meta/monetization.ts` and `src/services/ads.ts`: persistent offer/ad rules,
+  browser-only purchase demos, and the native AdMob test bridge with UMP consent.
 - `tests/`: rule and generator validation.
 - `assets/`: supplied SVGs and locally licensed Cairo font.
 - `capacitor.config.ts`: Android app identity and future web build directory.
@@ -94,7 +96,7 @@ The game loads the checked-in data without rerunning this command at launch.
   by tests; levels beyond the precomputed 1000 are generated on demand.
 - Phase 5 shop decorations and order rewards are playable. Phase 6 adds daily
   rewards and challenges. Real-money purchases and ad-assisted help remain later.
-- Save schema v3 migrates earlier saves in the existing localStorage slot. It saves owned
+- Save schema v4 migrates earlier saves in the existing localStorage slot. It saves owned
   decorations, settings, order-reward receipts and the in-progress board, hidden
   layers, undo history and helper counts. Invalid sessions safely restart.
   Native storage and cloud integration remain Phase 8.
@@ -113,5 +115,5 @@ The game loads the checked-in data without rerunning this command at launch.
 
 ## Next phase
 
-Wait for the owner's OK, then Phase 7: ad integration and policy-compliant
-reward flows. Follow `docs/GAME_SPEC.md` and the readiness checklist.
+Wait for the owner's OK, then Phase 8: Android project, platform setup, and
+native services. See `docs/PHASE_7_REPORT.md` and `docs/GOOGLE_PLAY_READINESS.md`.

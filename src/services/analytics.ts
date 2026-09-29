@@ -1,4 +1,4 @@
-const permitted = new Set(['level', 'returning', 'skipped', 'len', 'suggested', 'type', 'order', 'moves', 'par', 'stars', 'hints', 'undos', 'mode', 'src', 'item', 'coins', 'day', 'date', 'streak']);
+const permitted = new Set(['level', 'returning', 'skipped', 'len', 'suggested', 'type', 'order', 'moves', 'par', 'stars', 'hints', 'undos', 'mode', 'src', 'item', 'coins', 'day', 'date', 'streak', 'placement']);
 const recent: { event: string; params: Record<string, string | number | boolean> }[] = [];
 export const recentEvents = () => recent.slice();
 export function track(event: string, params: Record<string, string | number | boolean> = {}): void {

@@ -18,6 +18,14 @@ export const DAILY_REWARDS = [
   { coins: 0, hints: 2 }, { coins: 60, hints: 0 }, { coins: 0, hints: 3 }, { coins: 100, hints: 0 },
 ] as const;
 export const DAILY_ECONOMY = { base: 50, perDay: 10, streakCap: 7 };
+export const MONETIZATION = {
+  starterWindowMs: 48 * 60 * 60 * 1000,
+  interstitialCooldownMs: 90 * 1000,
+  firstInterstitialLevel: 6,
+  interstitialEveryLevels: 3,
+  testRewardedId: 'ca-app-pub-3940256099942544/5224354917',
+  testInterstitialId: 'ca-app-pub-3940256099942544/1033173712',
+} as const;
 export const PRECOMPUTE = {
   levels: 1000, searchNodes: 4000, searchStates: 16000, searchTimeMs: 100,
 } as const;

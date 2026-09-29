@@ -24,6 +24,8 @@ import { dailySeed } from '../core/daily';
 import { claimDaily, completeDaily, dailyStatus, observeClock } from '../meta/daily';
 import { loadDaily } from '../services/daily';
 import { dayCount, fillDailyHub } from './dailyHub';
+import { isNativeAdsPlatform, showInterstitialAd, showRewardedAd, showPrivacyOptions } from '../services/ads';
+import { beginStarterOffer, markDoubleClaimed, markInterstitialShown, mockBuyStarterPack, shouldShowInterstitial, starterOfferAvailable } from '../meta/monetization';
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text?: string): HTMLElementTagNameMap[K] => {
   const n = document.createElement(tag); n.className = cls;
@@ -66,6 +68,7 @@ export class App {
   private now() { return this.previewDate ? new Date(this.previewDate) : new Date(); }
   private shownTheme = activeTheme(this.player.theme);
   private orderState: 'none' | 'waiting' | 'delivered' | 'missed' = 'none';
+  private rewardedThisWin = false;
   private readonly counter = el('div', 'counter');
   private readonly orderCard = el('section', 'order-card');
   private readonly seasonal = el('div', 'garland');
@@ -198,7 +201,7 @@ export class App {
     const definitions = [
       { key: 'undo', title: 'ui.undo', badge: this.session.undoLeft > 0 ? this.number(this.session.undoLeft) : this.text('ui.ad'), run: () => this.undo() },
       { key: 'hint', title: 'ui.hint', badge: this.session.hintFree + this.player.hints > 0 ? this.number(this.session.hintFree + this.player.hints) : this.text('ui.ad'), run: () => void this.hint() },
-      { key: 'extra', title: 'ui.extra', badge: this.text('ui.ad'), run: () => this.comingSoon() },
+      { key: 'extra', title: 'ui.extra', badge: this.session.extraJarUsed ? this.text('ui.used') : this.text('ui.ad'), run: () => this.session.extraJarUsed ? undefined : this.requestRewarded('extra_jar', 'reward.extra', () => { if (this.session.addExtraJar()) { this.update(); this.persist(); } }) },
       { key: 'restart', title: 'ui.restart', badge: '', run: () => this.restart() },
     ] as const;
     for (const d of definitions) {
@@ -251,7 +254,7 @@ export class App {
   private undo() {
     if (this.busy || this.won) return;
     const result = this.session.undo();
-    if (result === 'empty') this.toast('toast.noUndo'); else if (result === 'ad') this.comingSoon(); else { this.checkOrder(); this.update(); this.persist(); }
+    if (result === 'empty') this.toast('toast.noUndo'); else if (result === 'ad') this.requestRewarded('undo', 'reward.undo', () => this.session.grantUndos()); else { this.checkOrder(); this.update(); this.persist(); }
   }
   private restart() {
     if (this.busy || this.won) return;
@@ -259,7 +262,7 @@ export class App {
   }
   private async hint() {
     if (this.busy || this.won) return;
-    if (this.session.hintFree <= 0 && this.player.hints <= 0) { this.comingSoon(); return; }
+    if (this.session.hintFree <= 0 && this.player.hints <= 0) { this.requestRewarded('hint', 'reward.hint', () => { this.player.hints++; }); return; }
     this.busy = true; this.update(); this.toast('ui.hintBusy', 5000);
     try {
       const result = this.session.applyHint(await findHint(this.session.state()), this.player.hints); this.player.hints = result.inventory;
@@ -280,15 +283,77 @@ export class App {
     const card = this.open('win.title');
     card.append(el('div', 'stars', '★'.repeat(stars) + '☆'.repeat(3 - stars)), el('p', '', this.text('win.body', { n: this.number(level.level), m: this.number(this.session.moves), p: this.number(level.par) })), el('div', 'earn', this.text('win.coins', { c: this.number(reward) })));
     if (level.type === 'hard') card.append(el('p', 'note', this.text('win.hardNote')));
-    if (unlocked(this.player, 'double')) {
-      const double = this.button('win.double', () => {}, true); double.disabled = true; double.title = this.text('ui.nextFeature'); card.append(double);
+    this.rewardedThisWin = false;
+    if (unlocked(this.player, 'double') && !this.player.monetization.doubledLevels.includes(level.level)) {
+      const double = this.button('win.double', () => this.requestRewarded('double_coins', 'reward.double', () => {
+        if (!markDoubleClaimed(this.player, level.level)) return;
+        this.player.coins += reward; this.rewardedThisWin = true; double.disabled = true; double.textContent = this.text('win.doubled');
+        this.update(false); this.persist();
+      }, { c: this.number(reward) }), true); card.append(double);
     }
-    const next = () => { this.board.play('coin'); this.close(); this.startLevel(); if (level.level === 1 && !this.player.nameAnswered && SHOP_NAME.timing === 'after_level_1') this.naming(true); };
+    const next = () => { void this.advanceAfterWin(level.level); };
     card.append(this.button('win.next', next)); this.cancelModal = next;
+  }
+  private async advanceAfterWin(completedLevel: number) {
+    this.board.play('coin');
+    const afterOffer = async () => {
+      const eligible = shouldShowInterstitial(this.player, completedLevel, Date.now(), this.rewardedThisWin);
+      if (eligible) {
+        if (isNativeAdsPlatform) {
+          if (await showInterstitialAd()) { markInterstitialShown(this.player, Date.now()); track('interstitial_shown', { level: completedLevel }); }
+        } else await this.mockInterstitial();
+      }
+      this.close(); this.startLevel();
+      if (completedLevel === 1 && !this.player.nameAnswered && SHOP_NAME.timing === 'after_level_1') this.naming(true);
+    };
+    if (beginStarterOffer(this.player, completedLevel, Date.now())) {
+      this.persist(); this.starterPack(afterOffer); return;
+    }
+    await afterOffer();
+  }
+  private async requestRewarded(placement: 'undo' | 'hint' | 'extra_jar' | 'double_coins', rewardKey: StringKey, grant: () => void, params: Record<string, string | number> = {}) {
+    const modal = el('dialog', 'modal'), card = el('div', 'modal-card');
+    const close = () => { if (modal.open) modal.close(); };
+    modal.append(card); document.body.append(modal);
+    modal.addEventListener('close', () => modal.remove(), { once: true });
+    modal.addEventListener('cancel', event => { event.preventDefault(); close(); });
+    card.append(el('h2', '', this.text('rewarded.title')), el('p', '', this.text('rewarded.body', { reward: this.text(rewardKey, params) })));
+    if (!isNativeAdsPlatform) card.append(el('p', 'note', this.text('reward.mockNote')));
+    const cancel = this.button('rewarded.no', close, true), watch = this.button(isNativeAdsPlatform ? 'rewarded.claim' : 'reward.demo', () => {}, true);
+    watch.onclick = async () => {
+      watch.disabled = true; cancel.disabled = true;
+      const sound = this.player.sound;
+      this.board.configure(this.player.motion, sound, false);
+      track('rewarded_offer', { placement });
+      let earned = false;
+      try { earned = await showRewardedAd(); }
+      finally { this.board.configure(this.player.motion, sound, this.player.music); }
+      close();
+      if (earned) {
+        grant(); this.persist(); this.update(false); track('rewarded_complete', { placement });
+        if (placement === 'undo') this.toast('toast.undoAdded');
+        else if (placement === 'extra_jar') this.toast('toast.extraAdded');
+      } else this.toast('ad.unavailable');
+    };
+    card.append(watch, cancel); modal.showModal();
+  }
+  private async mockInterstitial() {
+    const modal = el('dialog', 'modal'), card = el('div', 'modal-card');
+    modal.append(card); document.body.append(modal);
+    modal.addEventListener('close', () => modal.remove(), { once: true });
+    modal.addEventListener('cancel', event => { event.preventDefault(); modal.close(); });
+    card.append(el('h2', '', this.text('interstitial.mockTitle')), el('p', '', this.text('interstitial.mockBody')),
+      this.button('interstitial.mockClose', () => { modal.close(); track('interstitial_shown', { level: this.player.level - 1 }); markInterstitialShown(this.player, Date.now()); this.persist(); }));
+    modal.showModal();
+    await new Promise<void>(resolve => modal.addEventListener('close', () => resolve(), { once: true }));
   }
   private stuck() {
     track('stuck_shown', { level: this.session.level.level, mode: 'level' });
-    const card = this.open('stuck.title'); card.append(el('p', '', this.text('stuck.body')), this.button('stuck.undo', () => { this.close(); this.undo(); }), this.button('stuck.extra', () => this.comingSoon(), true), this.button('stuck.restart', () => { this.close(); this.restart(); }, true), this.button('ui.close', () => this.close(), true));
+    const card = this.open('stuck.title'); card.append(el('p', '', this.text('stuck.body')), this.button('stuck.undo', () => { this.close(); this.undo(); }));
+    if (!this.session.extraJarUsed) card.append(this.button('stuck.extra', () => this.requestRewarded('extra_jar', 'reward.extra', () => {
+      if (this.session.addExtraJar()) { this.close(); this.update(); this.persist(); }
+    }), true));
+    card.append(this.button('stuck.restart', () => { this.close(); this.restart(); }, true), this.button('ui.close', () => this.close(), true));
   }
   private open(title: StringKey) {
     this.dialog.dataset.kind = title;
@@ -422,10 +487,50 @@ export class App {
       row.append(art(item), info, buy); card.append(row);
     }
     card.append(el('p', 'note', this.text('shop.hintsHave', { n: this.number(this.player.hints) })));
-    for (const key of ['shop.hints', 'shop.removeAds'] as const) { const button = this.button(key, () => {}, true); button.disabled = true; card.append(button); }
-    card.append(el('p', 'note', this.text('ui.purchasesLater')), this.button('shop.back', () => this.close()));
+    if (starterOfferAvailable(this.player, Date.now())) card.append(this.button('shop.starter', () => this.starterPack(() => this.shop()), true), el('p', 'note', this.text('starter.timer', { h: this.number(Math.ceil((this.player.monetization.starterOfferExpiresAt! - Date.now()) / 3_600_000)) })));
+    else if (this.player.monetization.starterPurchased) card.append(el('p', 'note', this.text('starter.owned')));
+    card.append(el('h3', '', this.text('shop.realProducts')));
+    card.append(this.purchaseButton('shop.hints', 'hints_10'), this.purchaseButton('shop.removeAds', 'remove_ads'));
+    card.append(el('p', 'note', this.text(isNativeAdsPlatform ? 'ui.purchasesLater' : 'shop.mockNote')), this.button('shop.back', () => this.close()));
   }
-  private comingSoon() { const card = this.open('ui.nextFeature'); card.append(el('p', '', this.text('ui.featureBody')), this.button('ui.close', () => this.close())); }
+  private purchaseButton(label: StringKey, product: 'hints_10' | 'remove_ads') {
+    const button = this.button(label, () => {}, true);
+    const owned = product === 'remove_ads' && this.player.monetization.removeAds;
+    button.disabled = isNativeAdsPlatform || owned;
+    if (owned) button.textContent = this.text('shop.owned');
+    else if (!isNativeAdsPlatform) button.textContent = `${this.text(label)} · ${this.text('shop.mock')}`;
+    button.onclick = () => {
+      if (isNativeAdsPlatform) return;
+      if (product === 'hints_10') this.player.hints += 10;
+      else this.player.monetization.removeAds = true;
+      this.persist(); this.update(false); this.shop();
+    };
+    return button;
+  }
+  private starterPack(after: () => void) {
+    const card = this.open('starter.title');
+    const items = el('ul', 'starter-items');
+    for (const key of ['starter.item1', 'starter.item2', 'starter.item3'] as const) items.append(el('li', '', this.text(key)));
+    card.append(el('p', '', this.text('starter.body')), items);
+    const expiresAt = this.player.monetization.starterOfferExpiresAt ?? 0;
+    card.append(el('p', 'note', starterOfferAvailable(this.player, Date.now()) ? this.text('starter.timer', { h: this.number(Math.ceil((expiresAt - Date.now()) / 3_600_000)) }) : this.text('starter.expired')));
+    const later = () => { this.close(); void after(); };
+    const buy = this.button(isNativeAdsPlatform ? 'starter.buy' : 'starter.demoBuy', () => {
+      if (isNativeAdsPlatform || !mockBuyStarterPack(this.player, Date.now())) return;
+      this.persist(); this.say('hassan.starterThanks'); this.update(false); this.close();
+      void after();
+    });
+    buy.disabled = isNativeAdsPlatform || !starterOfferAvailable(this.player, Date.now());
+    card.append(buy, this.button('starter.later', later, true)); this.cancelModal = later;
+  }
+  private async privacyOptions() {
+    if (isNativeAdsPlatform) {
+      if (!await showPrivacyOptions()) this.toast('ad.unavailable');
+    } else this.infoModal('settings.privacy', 'privacy.mockBody');
+  }
+  private infoModal(title: StringKey, body: StringKey) {
+    const card = this.open(title); card.append(el('p', '', this.text(body)), this.button('ui.close', () => this.close()));
+  }
   private naming(first: boolean) {
     const card = this.open(first ? 'name.title.first' : 'name.title.rename');
     const form = el('form'), label = el('label', 'name-label', this.text('name.field'));
@@ -479,7 +584,9 @@ export class App {
     }
     card.append(el('h3', '', this.text('ui.language')), languages, el('h3', '', this.text('ui.help')), el('p', '', this.text('ui.helpBody')));
     for (const key of ['settings.reminder', 'settings.privacy', 'settings.restore', 'settings.playGames'] as const) {
-      const button = this.button(key, () => {}, true); button.disabled = true; card.append(button);
+      const button = this.button(key, () => { if (key === 'settings.privacy') void this.privacyOptions(); else this.infoModal(key, 'ui.servicesLater'); }, true);
+      if (key !== 'settings.privacy') button.disabled = true;
+      card.append(button);
     }
     card.append(el('p', 'note', this.text('ui.servicesLater')), el('p', 'note', this.text('settings.version', { v: '0.1.0' })), this.button('ui.close', () => this.close()));
   }
