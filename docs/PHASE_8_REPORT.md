@@ -32,9 +32,10 @@
 
 ## Remaining Phase 8 decisions and setup
 
-- Play Games native code is in place, but Play Console IDs still need to be filled and the native build/device tests are not yet verified.
+- Play Games native code compiles successfully. Play Console IDs still need to be filled and real sign-in, achievements, and cross-device save tests remain unverified.
 - Firebase project setup: create/register Android package `com.marcoehab.attarsort`, enable Analytics and UMP Consent Mode in AdMob Privacy & Messaging, download `google-services.json`, and put it in `android/app/` locally. Then use Firebase DebugView while testing a debug build.
-- Repair the local Android SDK Build Tools 35.0.0 package before retrying Gradle; this is an SDK installation issue, not a project compilation diagnostic.
+- Android SDK Build Tools 35.0.0 was repaired and the debug build passed; no further SDK repair is currently required.
+- Follow [the account setup guide](PLAY_CONSOLE_ACCOUNT_SETUP.md) to create and verify the owner's Play Console account and create the game draft.
 - In Android Studio, open the project, wait for Gradle sync, and choose **Build > Build Bundle(s) / APK(s) > Build APK(s)** for a debug APK. For release, use **Build > Generate Signed Bundle / APK** and choose Android App Bundle. Create the upload key locally in that wizard, store its password outside the repository, and keep a second offline backup. Never commit the key or password.
 
 Phase 8 remains open until Play Games IDs are configured in Play Console, Firebase DebugView and device behavior are checked, and release debug-tool exclusion is confirmed. The debug Android build is verified. Phase 9 has not started.
