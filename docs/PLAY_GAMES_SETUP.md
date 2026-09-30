@@ -11,6 +11,8 @@ The Android integration uses Google's Play Games Services v2 SDK with a small Ca
 5. Publish the Play Games Services configuration to the test track and add test accounts in Play Console. The game does not need to be publicly released for internal testing.
 6. Rebuild and install from a Play test track or a locally signed build whose certificate fingerprint is registered in Play Console.
 
+The local upload certificate SHA-1 is `F0:DF:DF:79:1F:E4:6A:18:2B:6D:DB:8D:0F:D1:14:17:F1:33:08:93` and SHA-256 is `AE:B9:65:EF:86:97:7D:4C:F1:05:0A:F8:17:AF:6F:66:83:CA:FF:22:F2:E9:E1:3B:21:2E:BE:F3:E3:33:0A:7D`. These are certificate fingerprints, not private keys. Google Play App Signing signs distributed APKs with its own certificate, so also register the app-signing certificate fingerprint shown in Play Console. The debug certificate SHA-1 for locally installed debug APKs is `97:DF:0B:C8:F9:2E:2B:CF:D1:66:0C:E8:62:A3:AB:6D:9E:6D:AC:86`.
+
 | Resource key | Trigger |
 | --- | --- |
 | `pgs_achievement_first_three_star` | First normal level completed with 3 stars |

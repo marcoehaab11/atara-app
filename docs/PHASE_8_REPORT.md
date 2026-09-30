@@ -12,7 +12,7 @@
 - The project applies Google's Services Gradle plugin only when `android/app/google-services.json` exists. Add your own Firebase Android app configuration locally; `.gitignore` excludes that file. Never commit it.
 - Added a Kotlin Capacitor bridge on Google's official Play Games Services v2 SDK for background sign-in, Saved Games snapshots, custom conflict merging, achievement unlocks, and the achievements screen. The bridge follows the spec's max-level then total-stars rule and unions decorations without adding currency. Android Gradle Plugin 8.13.2, Kotlin Gradle Plugin 2.3.21, and Play Games SDK 22.1.0 are included.
 - Set the placeholder PGS project ID and six achievement IDs in `android/app/src/main/res/values/strings.xml` using [the Play Games setup guide](PLAY_GAMES_SETUP.md) before testing PGS. Local play stays available if PGS is not configured or the player is offline.
-- No upload key or release signing secret was created.
+- An upload key was generated outside the repository at `C:\Users\Marco Ehab\Documents\Attar Sort Signing\attar-upload.jks` with its password in the same local folder. A matching backup copy is at `C:\Users\Marco Ehab\Desktop\Attar Sort Upload Key Backup`; the owner must copy the key and password to separate offline storage. No key or password is committed.
 
 ## Validation
 
@@ -29,7 +29,10 @@
 - `npm test`: 103 tests passed; `npm run typecheck`, `npm run lint`, and `npm run build` passed. ESLint ignores generated Android `build/` intermediates so generated minified assets do not get linted as source.
 - Installed the debug APK on the API 36.1 Google Play emulator. After Android's first-boot package optimization and system UI/phone ANRs settled, the app opened the Arabic shop-naming screen, entered level 1, and accepted a legal pour; the displayed move count advanced from 0 to 1. The final run had no `AndroidRuntime` fatal exception. Play Games sign-in/cloud saves and Firebase analytics/consent remain unverified because Play Console IDs and the local Firebase configuration are intentionally placeholders/missing.
 - The owner supplied a Firebase Android configuration for project `attar-sort` and package `com.marcoehab.attarsort`. It was copied to ignored `android/app/google-services.json`. `:app:processDebugGoogleServices` and `assembleDebug` passed, producing an updated local debug APK. No Android device was connected for a DebugView event check, so Analytics delivery and consent behavior remain unverified.
-- Firebase DebugView, Play Games behavior, notification delivery, keyboard behavior, and review UI need testing on a configured Android app/device. The production web bundle excludes the `metaPanel` and `motionBench` debug modules; Android release debug-tool exclusion still needs confirmation in a release build.
+- The owner reported testing the APK on a phone, without detailed results or DebugView evidence. This report does not treat the 30-minute no-crash, performance, consent, notifications, or Play Games checks as verified.
+- `npm run android:sync` and `gradlew bundleRelease` passed with the Firebase configuration. The bundle was signed with the local upload key and `jarsigner -verify` passed. The test-signed AAB is local at `android/app/build/outputs/bundle/release/app-release-test-signed.aab`; it still uses Google test ad IDs, placeholder Play Games IDs, and lacks Phase 9 purchases, so it is not a Play submission candidate.
+- Moved the development panel CSS into the development-only module. Scanned the signed AAB's web assets and found no `debug-panel`, `metaPanel`, `motionBench`, or `debug-oud` code tokens. The debug-only controls are excluded from the bundle.
+- Firebase DebugView, Play Games behavior, notification delivery, keyboard behavior, and review UI need testing on a configured Android app/device.
 
 ## Remaining Phase 8 decisions and setup
 
@@ -37,6 +40,6 @@
 - Firebase project `attar-sort` has the Android app `com.marcoehab.attarsort` registered and its configuration installed locally. Verify Google Analytics is enabled, enable UMP Consent Mode in AdMob Privacy & Messaging, then use Firebase DebugView on a connected Android device while testing the updated debug build.
 - Android SDK Build Tools 35.0.0 was repaired and the debug build passed; no further SDK repair is currently required.
 - Follow [the account setup guide](PLAY_CONSOLE_ACCOUNT_SETUP.md) to create and verify the owner's Play Console account and create the game draft.
-- In Android Studio, open the project, wait for Gradle sync, and choose **Build > Build Bundle(s) / APK(s) > Build APK(s)** for a debug APK. For release, use **Build > Generate Signed Bundle / APK** and choose Android App Bundle. Create the upload key locally in that wizard, store its password outside the repository, and keep a second offline backup. Never commit the key or password.
+- The local upload key and its password have been created outside the repository, with a same-PC backup. Move an additional copy of both to separate offline storage. For later Play releases, use **Build > Generate Signed Bundle / APK** and choose Android App Bundle with this key and alias `attar-upload`. Never commit the key or password. Register the Play App Signing certificate fingerprint as well as any local test fingerprint with Play Games; Google re-signs distributed APKs.
 
-Phase 8 remains open until Play Games IDs are configured in Play Console, Firebase DebugView and device behavior are checked, and release debug-tool exclusion is confirmed. The debug Android build is verified. Phase 9 has not started.
+Phase 8 remains open until Play Games IDs are configured in Play Console, Firebase DebugView and device behavior are checked, and the owner's offline upload-key backup is confirmed. Debug APK and test-signed AAB builds are verified. Phase 9 has not started.

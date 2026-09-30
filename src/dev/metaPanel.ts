@@ -1,5 +1,6 @@
 import { t } from '../i18n';
 import { recentEvents } from '../services/analytics';
+import './metaPanel.css';
 export function metaPanel(root: HTMLElement, callbacks: { coins: () => void; jump: (level: number) => void; day: () => void; reset: () => void }) {
   const panel = document.createElement('details'); panel.className = 'debug-panel';
   const title = document.createElement('summary'); title.textContent = t('en', 'debug.title'); panel.append(title);
