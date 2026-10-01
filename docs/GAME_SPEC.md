@@ -242,7 +242,7 @@ Beyond 1000, generate at runtime with the same algorithm. Print stats per level 
 
 ## 17. First-time experience and unlocks
 - The app opens straight into level 1 (no title screen on first launch). With the default timing, the naming popup appears first: one tap on a suggestion plus one confirm, or one tap to skip.
-- From the second launch onward, show a shop-door welcome screen before gameplay. It displays the saved shop name and current level, with Continue, language, and Settings controls. Continue resumes the saved level; Settings opens the game's settings dialog. The first launch still enters level 1 directly and shows the naming popup as above.
+- From the second launch onward, show a shop-door welcome screen titled "باب العطارة" (English: "The Spice Shop Door") before gameplay. It displays the saved shop name and current level, with an "افتح المحل" ("Open the shop") button, language, and Settings controls. The button resumes the saved level; Settings opens the game's settings dialog. The first launch still enters level 1 directly and shows the naming popup as above.
 - After naming: "hassan.welcomeNamed" or "hassan.welcomeSkipped", followed by "hassan.tut1".
 - Level 1 has no toolbar and the first move is highlighted (source lifted, target glowing) until the first pour.
 - Unlock schedule by highest level reached: 2 = undo and restart; 3 = hint, extra vessel, coin pill; 4 = shop button, counter decorations, double-coins button; 5 = daily button (reward and challenge). Each unlock is announced once by عم حسن ("hassan.unlock2" to "hassan.unlock5") on the first visit of that level.

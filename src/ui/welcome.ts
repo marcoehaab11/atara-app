@@ -16,7 +16,7 @@ export function showWelcome(root: HTMLElement, player: Player, enter: (view: 'ga
   const sign = document.createElement('p'); sign.className = 'welcome-sign';
   sign.textContent = text('shop.label', { name: player.name ?? text('shop.defaultName') });
   const portrait = document.createElement('img'); portrait.className = 'welcome-hassan'; portrait.src = hassan; portrait.alt = '';
-  const heading = document.createElement('h1'); heading.textContent = text('app.name');
+  const heading = document.createElement('h1'); heading.textContent = text('welcome.title');
   const subtitle = document.createElement('p'); subtitle.className = 'welcome-subtitle'; subtitle.textContent = text('welcome.subtitle');
   const level = document.createElement('p'); level.className = 'welcome-level';
   level.textContent = text('ui.level', { n: new Intl.NumberFormat(locale).format(player.level) });

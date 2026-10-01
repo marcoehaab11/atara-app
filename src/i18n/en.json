@@ -1,7 +1,8 @@
 {
   "app.name": "Attar Sort",
+  "welcome.title": "The Spice Shop Door",
   "welcome.subtitle": "Uncle Hassan has the shop ready for you",
-  "welcome.continue": "Continue playing",
+  "welcome.continue": "Open the shop",
   "shop.label": "{name} Spice Shop",
   "shop.defaultName": "Uncle Hassan",
   "name.title.first": "Name your shop",

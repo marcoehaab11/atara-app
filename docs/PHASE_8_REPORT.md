@@ -2,8 +2,8 @@
 
 ## Implemented
 
-- Added a shop-door welcome screen from the second launch onward, with saved shop name, level, Continue, language switching, and access to Settings. First launch still opens level 1 and its naming popup directly, as specified. The screen uses the existing Hassan art and localized strings.
-- Added Capacitor Android 8.5.2 and generated the native Android project. Android targets API 36, locks to portrait, declares the app as a game, and reports version code 1 / version name 0.1.0. Launcher labels are Arabic and English, and the launcher/splash artwork remains a replaceable placeholder.
+- Added a shop-door welcome screen from the second launch onward, titled "باب العطارة", with saved shop name, level, "افتح المحل", language switching, and access to Settings. First launch still opens level 1 and its naming popup directly, as specified. The screen uses the existing Hassan art and localized strings.
+- Added Capacitor Android 8.5.2 and generated the native Android project. Android targets API 36, locks to portrait, declares the app as a game, and reports version code 1 / version name 0.1.0. Launcher labels are Arabic and English. The launcher and Android splash use the original Hassan artwork in a rounded spice-shop doorway; source artwork and a 512 px icon are in `assets/branding/`.
 - Added the spec-listed Capacitor Preferences, Haptics, and Local Notifications packages. Player saves migrate from `localStorage` into native Preferences; Android haptics use the native bridge.
 - Added the daily-reminder explanation after two daily challenges, an optional settings toggle, and a rolling queue of one reminder per day for three days at the player's recent median start hour (default 19:00). Playing or opening a reminder replaces the queue with future days, while three ignored notifications exhaust the queue until the player opens the app again.
 - Added Capacitor App and Keyboard handling: Android back skips the first-run naming dialog, closes the top dialog, or asks before exit; keyboard display scrolls the active name field into view.
@@ -17,6 +17,7 @@
 
 ## Validation
 
+- "باب العطارة" branding check: the returning-player heading and button use localized Arabic/English strings; the 512 px Hassan icon and Android rounded, round, and adaptive foreground variants were visually inspected. `npm test` passed 104 tests, `npm run typecheck`, `npm run lint`, `npm run android:sync`, and `gradlew assembleDebug` passed. The updated debug APK is ready for a launcher and splash check on a phone; this icon update has not yet been manually checked on a device.
 - Welcome-screen check: an existing browser save opened the welcome screen at level 2; Arabic/English switching, Continue, and Settings were verified in the browser. The first-launch storage path is covered by a new test. `npm test` now passes 13 files / 104 tests, and TypeScript, ESLint, production web build, Capacitor Android sync, and `assembleDebug` pass. The refreshed debug APK contains the welcome screen. The new Android build has not been manually opened on a phone in this task.
 - `npm test`: passed, 12 files / 103 tests, including cloud-save conflict selection.
 - `npm run typecheck`: passed.
