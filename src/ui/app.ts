@@ -69,6 +69,7 @@ export class App {
   private previewDate: Date | undefined;
   private dailyDate: number | null = null;
   private booting = true;
+  private dailyAfterWelcomeSettings = false;
   private now() { return this.previewDate ? new Date(this.previewDate) : new Date(); }
   private shownTheme: ReturnType<typeof activeTheme> = 'normal';
   private orderState: 'none' | 'waiting' | 'delivered' | 'missed' = 'none';
@@ -101,7 +102,7 @@ export class App {
   private readonly dailyButton = el('button', 'icon-button');
   private readonly settingsButton = el('button', 'icon-button');
 
-  constructor(root: HTMLElement, player: Player) {
+  constructor(root: HTMLElement, player: Player, initialView: 'game' | 'settings' = 'game') {
     this.player = player;
     this.shownTheme = activeTheme(this.player.theme);
     root.replaceChildren(); root.className = 'game-shell';
@@ -135,6 +136,7 @@ export class App {
     this.startLevel();
     this.booting = false;
     if (!this.player.nameAnswered && SHOP_NAME.timing === 'first_launch') { this.say('hassan.nameAsk'); this.naming(true); }
+    else if (initialView === 'settings') { this.dailyAfterWelcomeSettings = true; this.settings(); }
     else if (this.player.daily.run?.date === dailySeed(this.now()) && !dailyStatus(this.player, this.now()).completed) void this.startDaily(this.player.daily.run.snapshot);
     else { this.player.daily.run = null; this.maybeDaily(); }
     if (import.meta.env.DEV && new URLSearchParams(location.search).has('debug')) {
@@ -490,7 +492,10 @@ export class App {
     h.id = 'modal-title'; this.dialog.setAttribute('aria-labelledby', h.id); card.append(h); this.dialog.append(card);
     this.cancelModal = () => this.close(); if (!this.dialog.open) this.dialog.showModal(); return card;
   }
-  private close() { this.dialog.close(); }
+  private close() {
+    this.dialog.close();
+    if (this.dailyAfterWelcomeSettings) { this.dailyAfterWelcomeSettings = false; this.maybeDaily(); }
+  }
   private refreshDaily() {
     this.update(false);
     if (this.dialog.open && this.dialog.dataset.kind === 'daily.title') this.dailyHub();

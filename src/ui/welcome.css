@@ -1,0 +1,15 @@
+.welcome-root { min-height: 100dvh; display: grid; place-items: center; padding: max(20px, env(safe-area-inset-top)) 18px max(20px, env(safe-area-inset-bottom)); }
+.welcome-screen { width: min(100%, 460px); }
+.welcome-door { position: relative; isolation: isolate; overflow: hidden; min-height: min(710px, calc(100dvh - 40px)); padding: 28px 28px 38px; border: 2px solid #a47a48; border-radius: 175px 175px 26px 26px; background: radial-gradient(circle at 50% 28%, #76502e 0, #432b1b 35%, #241810 78%), url('../../assets/svg/bg_mashrabiya_tile.svg'); box-shadow: inset 0 0 0 7px #2a1b11, inset 0 0 0 9px #b28a5044, 0 18px 40px #0008; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.welcome-door::before { content: ''; position: absolute; inset: 55px 20px 18px; border: 1px solid #d5a55e38; border-radius: 150px 150px 18px 18px; pointer-events: none; }
+.welcome-door::after { content: ''; position: absolute; width: 260px; height: 260px; top: 135px; border-radius: 50%; background: #dfa95b1a; filter: blur(28px); z-index: -1; }
+.welcome-sign { align-self: stretch; margin: 18px 0 58px; padding: 13px 12px; border: 2px solid #d6a85b; border-radius: 10px; background: linear-gradient(120deg, #744a2b, #4d2c19); color: #ffe2a8; font-weight: 800; font-size: clamp(18px, 5vw, 25px); overflow-wrap: anywhere; box-shadow: 0 8px 18px #0005; }
+.welcome-hassan { width: 92px; height: 92px; border-radius: 50%; border: 3px solid #e0b46b; box-shadow: 0 0 0 10px #e0b46b20; }
+.welcome-door h1 { margin: 24px 0 5px; color: #ffe3aa; font-size: clamp(29px, 8vw, 42px); line-height: 1.35; }
+.welcome-subtitle { margin: 0; color: #f5dfbb; font-size: 15px; line-height: 1.7; }
+.welcome-level { margin: 22px 0 12px; padding: 5px 17px; border: 1px solid #d3a65d77; border-radius: 100px; background: #23170fb8; color: #f2d399; font-size: 13px; }
+.welcome-continue { width: min(100%, 300px); min-height: 56px; margin-top: auto; border: 1px solid #ffe3aa; border-radius: 16px; background: linear-gradient(#f2d28a, #ce9845); color: #2d1b0d; font-size: 18px; font-weight: 800; box-shadow: 0 6px 0 #6b411e; }
+.welcome-continue:active { transform: translateY(3px); box-shadow: 0 3px 0 #6b411e; }
+.welcome-actions { display: flex; justify-content: center; gap: 12px; width: 100%; margin-top: 23px; }
+.welcome-option { min-width: 112px; min-height: 42px; padding: 7px 14px; border: 1px solid #d6a85b88; border-radius: 12px; background: #211710b8; color: #f2d399; font-size: 13px; }
+@media (max-height: 650px) { .welcome-door { min-height: 0; padding-bottom: 27px; }.welcome-sign { margin-bottom: 20px; }.welcome-hassan { width: 72px; height: 72px; }.welcome-door h1 { margin-top: 14px; }.welcome-level { margin-top: 13px; }.welcome-continue { margin-top: 6px; } }

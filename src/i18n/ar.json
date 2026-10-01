@@ -1,5 +1,7 @@
 {
   "app.name": "رتّب العطارة",
+  "welcome.subtitle": "عم حسن فاتح المحل ومستنيك",
+  "welcome.continue": "كمّل اللعب",
   "shop.label": "عطارة {name}",
   "shop.defaultName": "عم حسن",
   "name.title.first": "سمّي محلك",

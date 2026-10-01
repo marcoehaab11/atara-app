@@ -2,6 +2,7 @@
 
 ## Implemented
 
+- Added a shop-door welcome screen from the second launch onward, with saved shop name, level, Continue, language switching, and access to Settings. First launch still opens level 1 and its naming popup directly, as specified. The screen uses the existing Hassan art and localized strings.
 - Added Capacitor Android 8.5.2 and generated the native Android project. Android targets API 36, locks to portrait, declares the app as a game, and reports version code 1 / version name 0.1.0. Launcher labels are Arabic and English, and the launcher/splash artwork remains a replaceable placeholder.
 - Added the spec-listed Capacitor Preferences, Haptics, and Local Notifications packages. Player saves migrate from `localStorage` into native Preferences; Android haptics use the native bridge.
 - Added the daily-reminder explanation after two daily challenges, an optional settings toggle, and a rolling queue of one reminder per day for three days at the player's recent median start hour (default 19:00). Playing or opening a reminder replaces the queue with future days, while three ignored notifications exhaust the queue until the player opens the app again.
@@ -16,6 +17,7 @@
 
 ## Validation
 
+- Welcome-screen check: an existing browser save opened the welcome screen at level 2; Arabic/English switching, Continue, and Settings were verified in the browser. The first-launch storage path is covered by a new test. `npm test` now passes 13 files / 104 tests, and TypeScript, ESLint, production web build, Capacitor Android sync, and `assembleDebug` pass. The refreshed debug APK contains the welcome screen. The new Android build has not been manually opened on a phone in this task.
 - `npm test`: passed, 12 files / 103 tests, including cloud-save conflict selection.
 - `npm run typecheck`: passed.
 - `npm run lint`: passed after excluding generated Android web assets from ESLint.
